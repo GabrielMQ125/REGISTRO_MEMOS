@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Evaluación</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f7fb;
+            color: #333;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .header h3 {
+            font-size: 1.2em;
+        }
+        
+        .header-links a {
+            color: white;
+            text-decoration: none;
+            margin-left: 20px;
+            padding: 8px 15px;
+            border-radius: 5px;
+            transition: background 0.3s;
+        }
+        
+        .header-links a:hover {
+            background: rgba(255,255,255,0.2);
+        }
+        
+        .tabs {
+            background: white;
+            padding: 15px 30px;
+            border-bottom: 1px solid #e0e0e0;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            overflow-x: auto;
+            white-space: nowrap;
+        }
+        
+        .tab-button {
+            padding: 10px 25px;
+            margin: 0 5px;
+            border: none;
+            background: #f0f2f5;
+            cursor: pointer;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.3s;
+            color: #666;
+        }
+        
+        .tab-button:hover {
+            background: #e4e7ec;
+            transform: translateY(-1px);
+        }
+        
+        .tab-button.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .curso-container {
+            padding: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .curso-titulo {
+            font-size: 1.5em;
+            color: #4a5568;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #e2e8f0;
+        }
+        
+        .alumno-card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            transition: all 0.3s;
+            border: 1px solid #eef2f7;
+        }
+        
+        .alumno-card:hover {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+        }
+        
+        .alumno-nombre {
+            font-size: 1.1em;
+            font-weight: 600;
+            color: #2d3748;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #e2e8f0;
+        }
+        
+        .materias-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 12px;
+        }
+        
+        .materia-item {
+            display: flex;
+            align-items: center;
+            padding: 8px 12px;
+            background: #f7fafc;
+            border-radius: 8px;
+            transition: all 0.2s;
+        }
+        
+        .materia-item:hover {
+            background: #edf2f7;
+        }
+        
+        .materia-item label {
+            margin-left: 10px;
+            cursor: pointer;
+            font-size: 0.9em;
+            color: #4a5568;
+            flex: 1;
+        }
+        
+        .materia-item input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+            margin: 0;
+        }
+        
+        .guardando {
+            opacity: 0.6;
+            pointer-events: none;
+        }
+        
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: #48bb78;
+            color: white;
+            padding: 12px 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            z-index: 1000;
+            animation: slideIn 0.3s ease;
+        }
+        
+        .toast.error {
+            background: #f56565;
+        }
+        
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+        
+        .debug-btn {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            background: #718096;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            z-index: 1000;
+        }
+        
+        .debug-btn:hover {
+            background: #4a5568;
+        }
+        
+        .spinner {
+            display: inline-block;
+            width: 14px;
+            height: 14px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 0.6s linear infinite;
+            margin-left: 8px;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .stats {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(0,0,0,0.7);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-size: 11px;
+            font-family: monospace;
+            z-index: 1000;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h3>📊 Sistema de Evaluación</h3>
+        <div class="header-links">
+            <span style="margin-right: 15px;">👤 {{nombre_completo}}</span>
+            <a href="/pdf">📄 Generar PDF</a>
+            <a href="/logout">🚪 Salir</a>
+        </div>
+    </div>
+    
+    <div class="tabs">
+        {% for curso in cursos.keys() %}
+        <button class="tab-button" onclick="mostrarCurso('{{curso}}')">{{curso}}</button>
+        {% endfor %}
+    </div>
+    
+    {% for curso, alumnos in cursos.items() %}
+    <div id="curso-{{curso}}" class="curso-container" style="display:none;">
+        <div class="curso-titulo">
+            📚 Curso: {{curso}}
+            <span style="font-size: 0.8em; color: #718096; margin-left: 10px;">{{alumnos|length}} estudiantes</span>
+        </div>
+        
+        {% for alumno in alumnos %}
+        <div class="alumno-card" id="card-{{curso}}-{{alumno}}">
+            <div class="alumno-nombre">
+                👨‍🎓 {{alumno}}
+            </div>
+            <div class="materias-grid">
+                {% for id, nombre in materias.items() %}
+                    {% if id in materias_user %}
+                    <div class="materia-item">
+                        <input type="checkbox" 
+                               id="chk-{{curso}}-{{alumno}}-{{id}}"
+                               data-curso="{{curso}}"
+                               data-alumno="{{alumno}}"
+                               data-materia="{{id}}"
+                               {% if estado.get(curso + '_' + alumno + '_' + id|string) %}
+                               checked
+                               {% endif %}
+                               onchange="guardarCambio(this, '{{curso}}','{{alumno}}',{{id}})">
+                        <label for="chk-{{curso}}-{{alumno}}-{{id}}">{{nombre}}</label>
+                    </div>
+                    {% endif %}
+                {% endfor %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endfor %}
+    
+    <button class="debug-btn" onclick="verDiagnostico()">🔍 Diagnóstico</button>
+    <div class="stats" id="stats"></div>
+    
+    <script>
+        let contadorGuardados = 0;
+        let contadorErrores = 0;
+        
+        // Mostrar el primer curso por defecto
+        let cursoButtons = document.querySelectorAll('.tab-button');
+        if(cursoButtons.length > 0) {
+            mostrarCurso(cursoButtons[0].innerText.trim());
+        }
+        
+        function mostrarCurso(cursoId) {
+            // Ocultar todos los cursos
+            document.querySelectorAll('.curso-container').forEach(container => {
+                container.style.display = 'none';
+            });
+            
+            // Mostrar el curso seleccionado
+            const cursoContainer = document.getElementById('curso-' + cursoId);
+            if(cursoContainer) {
+                cursoContainer.style.display = 'block';
+            }
+            
+            // Actualizar estilo de botones
+            document.querySelectorAll('.tab-button').forEach(btn => {
+                btn.classList.remove('active');
+                if(btn.innerText.trim() === cursoId) {
+                    btn.classList.add('active');
+                }
+            });
+        }
+        
+        async function guardarCambio(checkbox, curso, alumno, materia) {
+            const valor = checkbox.checked;
+            const card = checkbox.closest('.alumno-card');
+            const materiaItem = checkbox.closest('.materia-item');
+            
+            // Guardar estado original en caso de error
+            const originalChecked = checkbox.checked;
+            
+            // Mostrar indicador de guardado
+            mostrarToast('💾 Guardando...', 'info');
+            card.classList.add('guardando');
+            
+            // Crear un spinner temporal
+            const spinner = document.createElement('span');
+            spinner.className = 'spinner';
+            materiaItem.appendChild(spinner);
+            
+            try {
+                console.log(`📤 Enviando: ${curso} - ${alumno} - M${materia} = ${valor}`);
+                
+                const response = await fetch('/guardar', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        curso: curso,
+                        alumno: alumno,
+                        materia: materia,
+                        valor: valor
+                    })
+                });
+                
+                if(!response.ok) {
+                    throw new Error(`Error HTTP: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                
+                if(data.success) {
+                    contadorGuardados++;
+                    mostrarToast('✅ Guardado correctamente', 'success');
+                    console.log(`✅ Éxito: ${curso} - ${alumno} - M${materia} = ${valor}`);
+                    actualizarStats();
+                } else {
+                    throw new Error(data.error || 'Error desconocido');
+                }
+                
+            } catch(error) {
+                contadorErrores++;
+                console.error('❌ Error:', error);
+                // Revertir el checkbox al estado original
+                checkbox.checked = originalChecked;
+                mostrarToast('❌ Error: ' + error.message, 'error');
+                actualizarStats();
+            } finally {
+                // Quitar indicadores
+                card.classList.remove('guardando');
+                if(spinner && spinner.parentNode) {
+                    spinner.remove();
+                }
+                setTimeout(() => {
+                    const toast = document.querySelector('.toast:not(.error)');
+                    if(toast && toast.textContent === '💾 Guardando...') {
+                        toast.remove();
+                    }
+                }, 1000);
+            }
+        }
+        
+        function mostrarToast(mensaje, tipo = 'info') {
+            // Remover toast existente
+            const toasts = document.querySelectorAll('.toast');
+            toasts.forEach(toast => toast.remove());
+            
+            // Crear nuevo toast
+            const toast = document.createElement('div');
+            toast.className = 'toast';
+            if(tipo === 'error') {
+                toast.classList.add('error');
+            }
+            toast.textContent = mensaje;
+            document.body.appendChild(toast);
+            
+            // Eliminar después de 2 segundos
+            setTimeout(() => {
+                if(toast.parentNode) {
+                    toast.remove();
+                }
+            }, 2000);
+        }
+        
+        async function verDiagnostico() {
+            try {
+                mostrarToast('🔍 Obteniendo diagnóstico...', 'info');
+                const response = await fetch('/diagnostico');
+                const data = await response.json();
+                
+                console.log('📊 DATOS DE DIAGNÓSTICO:');
+                console.log(data);
+                
+                if(data.error) {
+                    mostrarToast('Error: ' + data.error, 'error');
+                    return;
+                }
+                
+                let mensaje = `=== DIAGNÓSTICO ===\n`;
+                mensaje += `👤 Usuario: ${data.usuario}\n`;
+                mensaje += `📝 Registros encontrados: ${data.mis_registros.length}\n\n`;
+                
+                if(data.mis_registros.length > 0) {
+                    mensaje += `📋 ÚLTIMOS REGISTROS:\n`;
+                    data.mis_registros.slice(-3).forEach(reg => {
+                        const marcadas = [];
+                        for(let i = 1; i <= 15; i++) {
+                            const valor = reg[`M${i}`];
+                            if(valor && valor.toUpperCase() === 'TRUE') {
+                                marcadas.push(i);
+                            }
+                        }
+                        mensaje += `\n${reg.curso} - ${reg.alumno}:\n`;
+                        mensaje += `  Materias marcadas: ${marcadas.length > 0 ? marcadas.join(', ') : 'ninguna'}\n`;
+                        mensaje += `  Fila #${reg.fila_numero}\n`;
+                        mensaje += `  Última modificación: ${reg.fecha || 'No registrada'}\n`;
+                    });
+                    mensaje += `\n💡 Revisa la consola (F12) para ver TODOS los datos`;
+                } else {
+                    mensaje += `⚠️ NO se encontraron registros para este profesor\n`;
+                    mensaje += `Prueba marcando algunos checkboxes primero\n`;
+                    mensaje += `\nPosibles causas:\n`;
+                    mensaje += `- No hay datos guardados aún\n`;
+                    mensaje += `- Error de conexión con Google Sheets\n`;
+                    mensaje += `- El usuario no coincide con los datos guardados`;
+                }
+                
+                alert(mensaje);
+                console.table(data.mis_registros);
+                
+            } catch(error) {
+                console.error('Error en diagnóstico:', error);
+                mostrarToast('Error al obtener diagnóstico', 'error');
+            }
+        }
+        
+        function actualizarStats() {
+            const statsDiv = document.getElementById('stats');
+            if(statsDiv) {
+                statsDiv.innerHTML = `✅ ${contadorGuardados} | ❌ ${contadorErrores}`;
+            }
+        }
+        
+        // Verificar conexión al cargar
+        async function verificarConexion() {
+            try {
+                const response = await fetch('/test_conexion');
+                const data = await response.json();
+                if(data.success) {
+                    console.log('✅ Conexión con servidor OK');
+                    mostrarToast('Sistema listo', 'success');
+                }
+            } catch(error) {
+                console.error('❌ Error de conexión:', error);
+            }
+        }
+        
+        // Verificar estado inicial
+        console.log('🚀 Sistema iniciado');
+        console.log('Cursos disponibles:', Array.from(document.querySelectorAll('.tab-button')).map(btn => btn.innerText));
+        
+        const checkboxes = document.querySelectorAll('input[type="checkbox"]');
+        console.log(`Total checkboxes: ${checkboxes.length}`);
+        
+        let marcadosIniciales = 0;
+        checkboxes.forEach(cb => {
+            if(cb.checked) marcadosIniciales++;
+        });
+        console.log(`Checkboxes marcados inicialmente: ${marcadosIniciales}`);
+        
+        // Verificar conexión
+        verificarConexion();
+        
+        // Actualizar stats cada segundo
+        setInterval(actualizarStats, 1000);
+    </script>
+</body>
+</html>
