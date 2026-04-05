@@ -256,22 +256,30 @@
                 👨‍🎓 {{alumno}}
             </div>
             <div class="materias-grid">
-                {% for id, nombre in materias.items() %}
-                    {% if id in materias_user %}
-                    <div class="materia-item">
-                        <input type="checkbox" 
-                               id="chk-{{curso}}-{{alumno}}-{{id}}"
-                               data-curso="{{curso}}"
-                               data-alumno="{{alumno}}"
-                               data-materia="{{id}}"
-                               {% if estado.get(curso + '_' + alumno + '_' + id|string) %}
-                               checked
-                               {% endif %}
-                               onchange="guardarCambio(this, '{{curso}}','{{alumno}}',{{id}})">
-                        <label for="chk-{{curso}}-{{alumno}}-{{id}}">{{nombre}}</label>
+                {% set materias_del_curso = materias_por_curso.get(curso, []) %}
+                
+                {% if materias_del_curso %}
+                    {% for id_materia in materias_del_curso %}
+                        {% if id_materia in todas_materias %}
+                        <div class="materia-item">
+                            <input type="checkbox" 
+                                   id="chk-{{curso}}-{{alumno}}-{{id_materia}}"
+                                   data-curso="{{curso}}"
+                                   data-alumno="{{alumno}}"
+                                   data-materia="{{id_materia}}"
+                                   {% if estado.get(curso + '_' + alumno + '_' + id_materia|string) %}
+                                   checked
+                                   {% endif %}
+                                   onchange="guardarCambio(this, '{{curso}}','{{alumno}}',{{id_materia}})">
+                            <label for="chk-{{curso}}-{{alumno}}-{{id_materia}}">{{todas_materias[id_materia]}}</label>
+                        </div>
+                        {% endif %}
+                    {% endfor %}
+                {% else %}
+                    <div class="materia-item" style="grid-column: 1/-1; text-align: center; color: #999;">
+                        <em>⚠️ No hay materias asignadas para este curso</em>
                     </div>
-                    {% endif %}
-                {% endfor %}
+                {% endif %}
             </div>
         </div>
         {% endfor %}
@@ -292,18 +300,15 @@
         }
         
         function mostrarCurso(cursoId) {
-            // Ocultar todos los cursos
             document.querySelectorAll('.curso-container').forEach(container => {
                 container.style.display = 'none';
             });
             
-            // Mostrar el curso seleccionado
             const cursoContainer = document.getElementById('curso-' + cursoId);
             if(cursoContainer) {
                 cursoContainer.style.display = 'block';
             }
             
-            // Actualizar estilo de botones
             document.querySelectorAll('.tab-button').forEach(btn => {
                 btn.classList.remove('active');
                 if(btn.innerText.trim() === cursoId) {
@@ -316,15 +321,11 @@
             const valor = checkbox.checked;
             const card = checkbox.closest('.alumno-card');
             const materiaItem = checkbox.closest('.materia-item');
-            
-            // Guardar estado original en caso de error
             const originalChecked = checkbox.checked;
             
-            // Mostrar indicador de guardado
             mostrarToast('💾 Guardando...', 'info');
             card.classList.add('guardando');
             
-            // Crear un spinner temporal
             const spinner = document.createElement('span');
             spinner.className = 'spinner';
             materiaItem.appendChild(spinner);
@@ -363,12 +364,10 @@
             } catch(error) {
                 contadorErrores++;
                 console.error('❌ Error:', error);
-                // Revertir el checkbox al estado original
                 checkbox.checked = originalChecked;
                 mostrarToast('❌ Error: ' + error.message, 'error');
                 actualizarStats();
             } finally {
-                // Quitar indicadores
                 card.classList.remove('guardando');
                 if(spinner && spinner.parentNode) {
                     spinner.remove();
@@ -383,11 +382,9 @@
         }
         
         function mostrarToast(mensaje, tipo = 'info') {
-            // Remover toast existente
             const toasts = document.querySelectorAll('.toast');
             toasts.forEach(toast => toast.remove());
             
-            // Crear nuevo toast
             const toast = document.createElement('div');
             toast.className = 'toast';
             if(tipo === 'error') {
@@ -396,7 +393,6 @@
             toast.textContent = mensaje;
             document.body.appendChild(toast);
             
-            // Eliminar después de 2 segundos
             setTimeout(() => {
                 if(toast.parentNode) {
                     toast.remove();
@@ -427,7 +423,7 @@
                     data.mis_registros.slice(-3).forEach(reg => {
                         const marcadas = [];
                         for(let i = 1; i <= 15; i++) {
-                            const valor = reg[`M${i}`];
+                            const valor = reg[`m${i}`];
                             if(valor && valor.toUpperCase() === 'TRUE') {
                                 marcadas.push(i);
                             }
@@ -441,10 +437,6 @@
                 } else {
                     mensaje += `⚠️ NO se encontraron registros para este profesor\n`;
                     mensaje += `Prueba marcando algunos checkboxes primero\n`;
-                    mensaje += `\nPosibles causas:\n`;
-                    mensaje += `- No hay datos guardados aún\n`;
-                    mensaje += `- Error de conexión con Google Sheets\n`;
-                    mensaje += `- El usuario no coincide con los datos guardados`;
                 }
                 
                 alert(mensaje);
@@ -463,37 +455,20 @@
             }
         }
         
-        // Verificar conexión al cargar
         async function verificarConexion() {
             try {
                 const response = await fetch('/test_conexion');
                 const data = await response.json();
                 if(data.success) {
                     console.log('✅ Conexión con servidor OK');
-                    mostrarToast('Sistema listo', 'success');
                 }
             } catch(error) {
                 console.error('❌ Error de conexión:', error);
             }
         }
         
-        // Verificar estado inicial
         console.log('🚀 Sistema iniciado');
-        console.log('Cursos disponibles:', Array.from(document.querySelectorAll('.tab-button')).map(btn => btn.innerText));
-        
-        const checkboxes = document.querySelectorAll('input[type="checkbox"]');
-        console.log(`Total checkboxes: ${checkboxes.length}`);
-        
-        let marcadosIniciales = 0;
-        checkboxes.forEach(cb => {
-            if(cb.checked) marcadosIniciales++;
-        });
-        console.log(`Checkboxes marcados inicialmente: ${marcadosIniciales}`);
-        
-        // Verificar conexión
         verificarConexion();
-        
-        // Actualizar stats cada segundo
         setInterval(actualizarStats, 1000);
     </script>
 </body>
