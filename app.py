@@ -61,21 +61,27 @@ except Exception as e:
 # ==================== FUNCIONES AUXILIARES ====================
 
 def convertir_a_booleano(valor):
+    """Convierte cualquier valor a booleano de forma robusta"""
     if valor is None:
         return False
     if isinstance(valor, bool):
         return valor
+    if isinstance(valor, (int, float)):
+        return valor == 1 or valor == True
     if isinstance(valor, str):
         valor_limpio = valor.strip().upper()
-        return valor_limpio == "TRUE" or valor_limpio == "VERDADERO" or valor_limpio == "1"
-    if isinstance(valor, (int, float)):
-        return valor == 1
+        # Valores que se consideran TRUE
+        if valor_limpio in ['TRUE', 'VERDADERO', '1', 'YES', 'SI', 'X', '✓']:
+            return True
+        return False
     return False
 
 def booleano_a_texto(valor):
+    """Convierte booleano a texto para Google Sheets"""
     return "TRUE" if valor else "FALSE"
 
 def verificar_fecha_valida():
+    """Verifica si la fecha actual está dentro del período permitido"""
     try:
         config_data = config_sheet.get_all_records()
         activo = True
@@ -120,6 +126,7 @@ def verificar_fecha_valida():
         return True, "No se pudo verificar la fecha"
 
 def incrementar_contador_descargas(profesor):
+    """Incrementa el contador de descargas para un profesor"""
     try:
         try:
             stats_sheet = spreadsheet.worksheet("ESTADISTICAS")
@@ -155,12 +162,10 @@ def obtener_materias_por_curso(profesor_dict, cursos_disponibles):
     """
     materias_por_curso = {curso: [] for curso in cursos_disponibles}
     
-    # Procesar cada materia (m1, m2, m3)
     for i in range(1, 4):
         materia_id = profesor_dict.get(f'm{i}')
         cursos_str = profesor_dict.get(f'cursos_m{i}', '')
         
-        # Validar que la materia existe
         if not materia_id or str(materia_id).strip() == '':
             continue
         
@@ -169,17 +174,14 @@ def obtener_materias_por_curso(profesor_dict, cursos_disponibles):
         except:
             continue
         
-        # Procesar cursos donde aplica esta materia
         if cursos_str and str(cursos_str).strip():
             cursos_aplicacion = [c.strip() for c in str(cursos_str).split(',') if c.strip()]
             
-            # Asignar la materia a cada curso
             for curso in cursos_aplicacion:
                 if curso in materias_por_curso:
                     if materia_id_int not in materias_por_curso[curso]:
                         materias_por_curso[curso].append(materia_id_int)
     
-    # Ordenar materias por ID
     for curso in materias_por_curso:
         materias_por_curso[curso].sort()
     
@@ -237,7 +239,6 @@ def generar_reporte_pdf(profesor, cursos_data, todas_materias, materias_por_curs
         elementos.append(Paragraph(f"<b>Curso: {curso_nombre}</b>", curso_style))
         elementos.append(Spacer(1, 10))
         
-        # Obtener materias específicas para este curso
         materias_curso_ids = materias_por_curso.get(curso_nombre, [])
         
         if not materias_curso_ids:
@@ -245,7 +246,6 @@ def generar_reporte_pdf(profesor, cursos_data, todas_materias, materias_por_curs
             elementos.append(Spacer(1, 20))
             continue
         
-        # Filtrar materias que tienen al menos una evaluación (si solo_marcadas es True)
         materias_a_mostrar = {}
         for materia_id in materias_curso_ids:
             if materia_id in todas_materias:
@@ -371,7 +371,6 @@ def login():
             return "Por favor ingrese un usuario"
         
         try:
-            # Obtener todas las filas de PROFESORES
             todas_filas = prof_sheet.get_all_values()
             
             if not todas_filas or len(todas_filas) < 2:
@@ -379,7 +378,6 @@ def login():
             
             encabezados = todas_filas[0]
             
-            # Buscar al profesor
             profesor_encontrado = None
             fila_datos = None
             
@@ -390,7 +388,6 @@ def login():
                     break
             
             if profesor_encontrado and fila_datos:
-                # Crear diccionario con los datos del profesor
                 profesor_dict = {}
                 for idx, header in enumerate(encabezados):
                     if header and str(header).strip():
@@ -399,7 +396,6 @@ def login():
                         else:
                             profesor_dict[str(header).strip()] = ''
                 
-                # Obtener cursos (de las columnas cursos_m1, cursos_m2, cursos_m3)
                 cursos_set = set()
                 for i in range(1, 4):
                     cursos_str = profesor_dict.get(f'cursos_m{i}', '')
@@ -410,8 +406,6 @@ def login():
                                 cursos_set.add(curso_limpio)
                 
                 cursos = sorted(list(cursos_set))
-                
-                # Obtener materias por curso usando la nueva estructura
                 materias_por_curso = obtener_materias_por_curso(profesor_dict, cursos)
                 
                 nombre_completo = profesor_dict.get('nombre_completo', usuario)
@@ -425,9 +419,7 @@ def login():
                 
                 print(f"✅ Login exitoso: {usuario} - {nombre_completo}")
                 print(f"   Cursos detectados: {cursos}")
-                print(f"   Materias por curso:")
-                for curso, materias in materias_por_curso.items():
-                    print(f"     {curso}: {materias}")
+                print(f"   Materias por curso: {materias_por_curso}")
                 
                 return redirect('/panel')
             
@@ -455,8 +447,6 @@ def panel():
         materias_por_curso = session.get('materias_por_curso', {})
         
         print(f"🔍 Panel para: {usuario}")
-        print(f"   Cursos: {cursos_profesor}")
-        print(f"   Materias por curso: {materias_por_curso}")
         
         # Obtener estudiantes
         estudiantes = est_sheet.get_all_records()
@@ -469,10 +459,8 @@ def panel():
             if curso and nombre and curso in cursos_profesor:
                 if curso not in cursos:
                     cursos[curso] = []
-                if nombre not in cursos[curso]:
+                if nombre not in cursos[curso] and nombre:
                     cursos[curso].append(nombre)
-        
-        print(f"   Estudiantes cargados: {sum(len(alumnos) for alumnos in cursos.values())}")
         
         # Obtener todas las materias disponibles
         materias_data = mat_sheet.get_all_records()
@@ -484,12 +472,14 @@ def panel():
                 if id_materia > 0 and nombre_materia:
                     todas_materias[id_materia] = nombre_materia
             except Exception as e:
-                print(f"   Error en materia: {e}")
                 continue
         
-        # Obtener respuestas guardadas
+        # ========== CARGA DE ESTADOS PREVIOS (AUTOGUARDADO) ==========
         todas_respuestas = resp_sheet.get_all_records()
         estado = {}
+        contador_cargados = 0
+        
+        print(f"📥 Cargando respuestas previas para {usuario}...")
         
         for respuesta in todas_respuestas:
             profesor_resp = respuesta.get('profesor', '')
@@ -497,14 +487,21 @@ def panel():
                 curso = respuesta.get('curso', '')
                 alumno = respuesta.get('alumno', '')
                 
-                if curso and alumno:
+                if curso and alumno and alumno.strip():
                     for i in range(1, 16):
-                        key = f"{curso}_{alumno}_{i}"
                         columna = f"m{i}"
                         valor = respuesta.get(columna, False)
-                        estado[key] = convertir_a_booleano(valor)
+                        
+                        # Convertir el valor a booleano correctamente
+                        valor_bool = convertir_a_booleano(valor)
+                        
+                        if valor_bool:  # Solo guardar si es True para ahorrar memoria
+                            key = f"{curso}_{alumno}_{i}"
+                            estado[key] = valor_bool
+                            contador_cargados += 1
+                            print(f"   Cargado: {curso} - {alumno} - M{i} = {valor_bool}")
         
-        print(f"   Estados cargados: {len(estado)}")
+        print(f"✅ Total estados cargados: {contador_cargados}")
         
         # Guardar en sesión
         for key, value in estado.items():
@@ -546,10 +543,13 @@ def guardar():
         
         valor_texto = booleano_a_texto(valor)
         
+        # Actualizar sesión
         key = f"{curso}_{alumno}_{materia}"
         session[f"estado_temp_{key}"] = valor
         
-        # Buscar si ya existe registro para este profesor, curso y alumno
+        print(f"💾 Guardando: {profesor} - {curso} - {alumno} - M{materia} = {valor_texto}")
+        
+        # Buscar si ya existe registro
         todas_filas = resp_sheet.get_all_values()
         
         num_fila = None
@@ -574,16 +574,18 @@ def guardar():
             # Actualizar registro existente
             resp_sheet.update_cell(num_fila, columna_materia, valor_texto)
             resp_sheet.update_cell(num_fila, 19, fecha)
+            print(f"   Actualizada fila {num_fila}")
         else:
-            # Crear nuevo registro
+            # Crear nuevo registro con todas las materias en FALSE
             nueva_fila = [profesor, curso, alumno]
             for i in range(15):
                 nueva_fila.append("FALSE")
             nueva_fila.append(fecha)
             
             resp_sheet.append_row(nueva_fila)
+            print(f"   Creada nueva fila para {alumno}")
             
-            # Buscar la fila recién creada y actualizar la materia específica
+            # Actualizar la materia específica
             todas_filas_nuevas = resp_sheet.get_all_values()
             for idx, fila in enumerate(todas_filas_nuevas, start=1):
                 if idx == 1:
@@ -597,6 +599,7 @@ def guardar():
                         fila_curso == curso and 
                         fila_alumno == alumno):
                         resp_sheet.update_cell(idx, columna_materia, valor_texto)
+                        print(f"   Actualizada materia M{materia} en fila {idx}")
                         break
         
         return jsonify({"success": True, "mensaje": "Guardado correctamente"})
@@ -619,7 +622,6 @@ def pdf():
         profesor = session['usuario']
         materias_por_curso = session.get('materias_por_curso', {})
         
-        # Obtener estudiantes y cursos
         estudiantes = est_sheet.get_all_records()
         cursos = {}
         for est in estudiantes:
@@ -631,7 +633,6 @@ def pdf():
                 if nombre not in cursos[curso]:
                     cursos[curso].append(nombre)
         
-        # Obtener todas las materias
         materias_data = mat_sheet.get_all_records()
         todas_materias = {}
         for m in materias_data:
@@ -645,7 +646,6 @@ def pdf():
         
         pdf_buffer = generar_reporte_pdf(profesor, cursos, todas_materias, materias_por_curso, solo_marcadas=True)
         
-        # Incrementar contador de descargas
         incrementar_contador_descargas(profesor)
         
         return send_file(
@@ -701,6 +701,24 @@ def diagnostico():
     
     except Exception as e:
         return jsonify({"error": str(e)})
+
+@app.route('/debug_estado')
+def debug_estado():
+    """Ruta para depurar el estado actual en sesión"""
+    if 'usuario' not in session:
+        return jsonify({"error": "No hay sesión"})
+    
+    estados = {}
+    for key in session.keys():
+        if key.startswith('estado_temp_'):
+            estados[key] = session[key]
+    
+    return jsonify({
+        "usuario": session['usuario'],
+        "total_estados": len(estados),
+        "estados": list(estados.keys())[:20],  # Mostrar primeros 20
+        "ejemplo": dict(list(estados.items())[:5]) if estados else {}
+    })
 
 @app.route('/test_conexion')
 def test_conexion():
