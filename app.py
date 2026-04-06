@@ -553,8 +553,8 @@ def guardar():
         data = request.json
         
         profesor = session.get('usuario', '').upper()
-        curso = data.get('curso')
-        alumno = data.get('alumno')
+        curso = data.get('curso').strip()
+        alumno = data.get('alumno').strip()
         materia = int(data.get('materia'))
         valor = data.get('valor')
         fecha = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -567,7 +567,7 @@ def guardar():
         
         print(f"💾 Guardando: {profesor} - {curso} - {alumno} - M{materia} = {valor_texto}")
         
-        # Buscar si ya existe registro
+        # Buscar si ya existe registro para este curso+alumno (sin importar el profesor)
         todas_filas = resp_sheet.get_all_values()
         
         num_fila = None
@@ -575,12 +575,11 @@ def guardar():
             if idx == 1:
                 continue
             if len(fila) >= 3:
-                fila_profesor = fila[0].strip().upper() if len(fila) > 0 else ""
-                fila_curso = fila[1] if len(fila) > 1 else ""
-                fila_alumno = fila[2] if len(fila) > 2 else ""
+                fila_curso = fila[1].strip() if len(fila) > 1 else ""
+                fila_alumno = fila[2].strip() if len(fila) > 2 else ""
                 
-                if (fila_profesor == profesor and 
-                    fila_curso == curso and 
+                # SOLO comparar curso y alumno (NO el profesor)
+                if (fila_curso == curso and 
                     fila_alumno == alumno):
                     num_fila = idx
                     break
@@ -589,7 +588,13 @@ def guardar():
         columna_materia = 4 + (materia - 1)
         
         if num_fila:
+            # Actualizar la materia específica
             resp_sheet.update_cell(num_fila, columna_materia, valor_texto)
+            
+            # Actualizar el profesor (último que modificó)
+            resp_sheet.update_cell(num_fila, 1, profesor)
+            
+            # Actualizar la fecha
             if len(todas_filas[num_fila-1]) >= 19:
                 resp_sheet.update_cell(num_fila, 19, fecha)
             else:
@@ -598,27 +603,28 @@ def guardar():
                     valores_actuales.append('')
                 valores_actuales[18] = fecha
                 resp_sheet.update(f'A{num_fila}:S{num_fila}', [valores_actuales])
-            print(f"   Actualizada fila {num_fila}, columna {columna_materia}")
+            
+            print(f"   Actualizada fila {num_fila}, columna {columna_materia}, profesor actualizado a {profesor}")
         else:
+            # Crear nueva fila con el profesor actual como "último modificador"
             nueva_fila = [profesor, curso, alumno]
             for i in range(15):
                 nueva_fila.append("FALSE")
             nueva_fila.append(fecha)
             
             resp_sheet.append_row(nueva_fila)
-            print(f"   Creada nueva fila para {alumno}")
+            print(f"   Creada nueva fila para {alumno} con profesor {profesor}")
             
+            # Actualizar la materia específica en la fila recién creada
             todas_filas_nuevas = resp_sheet.get_all_values()
             for idx, fila in enumerate(todas_filas_nuevas, start=1):
                 if idx == 1:
                     continue
                 if len(fila) >= 3:
-                    fila_profesor = fila[0].strip().upper() if len(fila) > 0 else ""
-                    fila_curso = fila[1] if len(fila) > 1 else ""
-                    fila_alumno = fila[2] if len(fila) > 2 else ""
+                    fila_curso = fila[1].strip() if len(fila) > 1 else ""
+                    fila_alumno = fila[2].strip() if len(fila) > 2 else ""
                     
-                    if (fila_profesor == profesor and 
-                        fila_curso == curso and 
+                    if (fila_curso == curso and 
                         fila_alumno == alumno):
                         resp_sheet.update_cell(idx, columna_materia, valor_texto)
                         print(f"   Actualizada materia M{materia} en fila {idx}")
