@@ -261,13 +261,14 @@
                 {% if materias_del_curso %}
                     {% for id_materia in materias_del_curso %}
                         {% if id_materia in todas_materias %}
+                        {% set key = curso + '_' + alumno + '_' + id_materia|string %}
                         <div class="materia-item">
                             <input type="checkbox" 
                                    id="chk-{{curso}}-{{alumno}}-{{id_materia}}"
                                    data-curso="{{curso}}"
                                    data-alumno="{{alumno}}"
                                    data-materia="{{id_materia}}"
-                                   {% if estado.get(curso + '_' + alumno + '_' + id_materia|string) %}
+                                   {% if estado.get(key, false) %}
                                    checked
                                    {% endif %}
                                    onchange="guardarCambio(this, '{{curso}}','{{alumno}}',{{id_materia}})">
