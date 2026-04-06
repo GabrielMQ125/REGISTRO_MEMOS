@@ -4,7 +4,7 @@ from oauth2client.service_account import ServiceAccountCredentials
 from datetime import datetime
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
 from reportlab.lib import colors
-from reportlab.lib.pagesizes import letter, landscape
+from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 import traceback
 import io
@@ -45,13 +45,24 @@ try:
     try:
         config_sheet = spreadsheet.worksheet("CONFIG")
         # Asegurar formato consistente
-        config_sheet.update('B2', 'TRUE')  # Forzar string
+        config_sheet.update('B2', 'TRUE')
     except:
         config_sheet = spreadsheet.add_worksheet("CONFIG", rows=10, cols=2)
         config_sheet.append_row(["clave", "valor"])
         config_sheet.append_row(["activo", "TRUE"])
         config_sheet.append_row(["fecha_inicio", "2026-01-01 00:00:00"])
         config_sheet.append_row(["fecha_fin", "2026-12-31 23:59:59"])
+    
+    # Verificar/Crear hoja ESTADISTICAS
+    try:
+        stats_sheet = spreadsheet.worksheet("ESTADISTICAS")
+        # Verificar encabezados
+        headers = stats_sheet.row_values(1)
+        if len(headers) < 3 or headers[0] != 'profesor':
+            stats_sheet.update('A1:C1', [['profesor', 'descargas_pdf', 'ultima_descarga']])
+    except:
+        stats_sheet = spreadsheet.add_worksheet("ESTADISTICAS", rows=100, cols=10)
+        stats_sheet.append_row(["profesor", "descargas_pdf", "ultima_descarga"])
     
     print("✅ Conexión exitosa con Google Sheets")
     
@@ -129,12 +140,7 @@ def verificar_fecha_valida():
 def incrementar_contador_descargas(profesor):
     """Incrementa el contador de descargas para un profesor"""
     try:
-        # Asegurar que la hoja existe
-        try:
-            stats_sheet = spreadsheet.worksheet("ESTADISTICAS")
-        except:
-            stats_sheet = spreadsheet.add_worksheet("ESTADISTICAS", rows=100, cols=10)
-            stats_sheet.append_row(["profesor", "descargas_pdf", "ultima_descarga"])
+        stats_sheet = spreadsheet.worksheet("ESTADISTICAS")
         
         # Buscar el profesor
         registros = stats_sheet.get_all_records()
@@ -152,12 +158,13 @@ def incrementar_contador_descargas(profesor):
             stats_sheet.update_cell(fila_encontrada, 2, descargas_actual + 1)
             stats_sheet.update_cell(fila_encontrada, 3, ahora)
             print(f"✅ Descarga registrada: {profesor} - Total: {descargas_actual + 1}")
+            return True
         else:
             # Crear nuevo registro
             stats_sheet.append_row([profesor.upper(), 1, ahora])
             print(f"✅ Nueva estadística creada para: {profesor}")
+            return True
         
-        return True
     except Exception as e:
         print(f"❌ Error actualizando contador: {e}")
         traceback.print_exc()
@@ -176,7 +183,6 @@ def obtener_materias_por_curso(profesor_dict, cursos_disponibles):
         
         try:
             materia_id_int = int(float(materia_id))
-            # Validar que la materia existe
             if materia_id_int <= 0 or materia_id_int > 15:
                 continue
         except:
@@ -195,10 +201,10 @@ def obtener_materias_por_curso(profesor_dict, cursos_disponibles):
     
     return materias_por_curso
 
-def generar_reporte_pdf(profesor, cursos_data, todas_materias, materias_por_curso, solo_marcadas=True):
-    """Genera reporte PDF respetando materias por curso"""
+def generar_reporte_pdf(profesor, cursos_data, todas_materias, materias_por_curso, solo_marcadas=True, nombre_completo=""):
+    """Genera reporte PDF vertical con nombre completo"""
     buffer = io.BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=landscape(letter),
+    doc = SimpleDocTemplate(buffer, pagesize=letter,
                            rightMargin=30, leftMargin=30,
                            topMargin=30, bottomMargin=30)
     
@@ -236,7 +242,8 @@ def generar_reporte_pdf(profesor, cursos_data, todas_materias, materias_por_curs
     titulo = Paragraph(f"<b>REPORTE DE EVALUACIONES</b>", titulo_style)
     elementos.append(titulo)
     
-    subtitulo = Paragraph(f"Profesor: {profesor}<br/>Fecha: {fecha_actual}<br/>Mostrando: {'Solo materias evaluadas' if solo_marcadas else 'Todas las materias'}", subtitulo_style)
+    nombre_mostrar = nombre_completo if nombre_completo else profesor
+    subtitulo = Paragraph(f"Profesor: {nombre_mostrar}<br/>Usuario: {profesor}<br/>Fecha: {fecha_actual}<br/>Mostrando: {'Solo materias evaluadas' if solo_marcadas else 'Todas las materias'}", subtitulo_style)
     elementos.append(subtitulo)
     elementos.append(Spacer(1, 20))
     
@@ -256,7 +263,7 @@ def generar_reporte_pdf(profesor, cursos_data, todas_materias, materias_por_curs
         
         materias_a_mostrar = {}
         for materia_id in materias_curso_ids:
-            if materia_id in todas_materias and todas_materias[materia_id]:  # Validar nombre no vacío
+            if materia_id in todas_materias and todas_materias[materia_id]:
                 if solo_marcadas:
                     tiene_marcada = False
                     for alumno in alumnos:
@@ -312,12 +319,12 @@ def generar_reporte_pdf(profesor, cursos_data, todas_materias, materias_por_curs
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
             ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
             ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, 0), 10),
-            ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
-            ('TOPPADDING', (0, 0), (-1, 0), 8),
+            ('FONTSIZE', (0, 0), (-1, 0), 9),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 6),
+            ('TOPPADDING', (0, 0), (-1, 0), 6),
             ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
             ('GRID', (0, 0), (-1, -1), 1, colors.black),
-            ('FONTSIZE', (0, 1), (-1, -1), 9),
+            ('FONTSIZE', (0, 1), (-1, -1), 8),
             ('ALIGN', (0, 0), (0, -1), 'LEFT'),
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
         ]))
@@ -470,7 +477,7 @@ def panel():
                 if nombre not in cursos[curso] and nombre:
                     cursos[curso].append(nombre)
         
-        # Obtener todas las materias disponibles (filtrar nombres vacíos)
+        # Obtener todas las materias disponibles
         materias_data = mat_sheet.get_all_records()
         todas_materias = {}
         for m in materias_data:
@@ -482,7 +489,7 @@ def panel():
             except Exception as e:
                 continue
         
-        # ========== CARGA DE ESTADOS PREVIOS (CORREGIDO) ==========
+        # Carga de estados previos
         todas_respuestas = resp_sheet.get_all_records()
         estado = {}
         contador_cargados = 0
@@ -496,15 +503,10 @@ def panel():
                 alumno = respuesta.get('alumno', '')
                 
                 if curso and alumno and alumno.strip():
-                    # Cargar TODAS las materias (True y False)
                     for i in range(1, 16):
                         columna = f"m{i}"
                         valor = respuesta.get(columna, False)
-                        
-                        # Convertir el valor a booleano correctamente
                         valor_bool = convertir_a_booleano(valor)
-                        
-                        # Guardar siempre el estado (tanto True como False)
                         key = f"{curso}_{alumno}_{i}"
                         estado[key] = valor_bool
                         contador_cargados += 1
@@ -514,12 +516,12 @@ def panel():
         
         print(f"✅ Total estados cargados: {contador_cargados}")
         
-        # Limpiar estados anteriores en sesión
+        # Limpiar estados anteriores
         keys_to_remove = [key for key in session.keys() if key.startswith('estado_temp_')]
         for key in keys_to_remove:
             session.pop(key, None)
         
-        # Guardar nuevos estados en sesión
+        # Guardar nuevos estados
         for key, value in estado.items():
             session[f"estado_temp_{key}"] = value
         
@@ -565,12 +567,12 @@ def guardar():
         
         print(f"💾 Guardando: {profesor} - {curso} - {alumno} - M{materia} = {valor_texto}")
         
-        # Buscar si ya existe registro para este profesor/curso/alumno
+        # Buscar si ya existe registro
         todas_filas = resp_sheet.get_all_values()
         
         num_fila = None
         for idx, fila in enumerate(todas_filas, start=1):
-            if idx == 1:  # Saltar encabezados
+            if idx == 1:
                 continue
             if len(fila) >= 3:
                 fila_profesor = fila[0].strip().upper() if len(fila) > 0 else ""
@@ -583,18 +585,14 @@ def guardar():
                     num_fila = idx
                     break
         
-        # CORRECCIÓN: La columna m{materia} está en posición: 
-        # A=1(profesor), B=2(curso), C=3(alumno), D=4(m1), E=5(m2), ..., R=18(m15)
-        columna_materia = 4 + (materia - 1)  # m1=4, m2=5, m3=6, ..., m15=18
+        # Columna m{materia}: A=1(profesor), B=2(curso), C=3(alumno), D=4(m1)... R=18(m15)
+        columna_materia = 4 + (materia - 1)
         
         if num_fila:
-            # Actualizar registro existente
             resp_sheet.update_cell(num_fila, columna_materia, valor_texto)
-            # Actualizar fecha en columna S (19)
             if len(todas_filas[num_fila-1]) >= 19:
                 resp_sheet.update_cell(num_fila, 19, fecha)
             else:
-                # Si la fila no tiene suficiente columnas, expandir
                 valores_actuales = resp_sheet.row_values(num_fila)
                 while len(valores_actuales) < 19:
                     valores_actuales.append('')
@@ -602,16 +600,14 @@ def guardar():
                 resp_sheet.update(f'A{num_fila}:S{num_fila}', [valores_actuales])
             print(f"   Actualizada fila {num_fila}, columna {columna_materia}")
         else:
-            # Crear nuevo registro con todas las materias en FALSE
             nueva_fila = [profesor, curso, alumno]
             for i in range(15):
                 nueva_fila.append("FALSE")
-            nueva_fila.append(fecha)  # fecha en columna 19
+            nueva_fila.append(fecha)
             
             resp_sheet.append_row(nueva_fila)
             print(f"   Creada nueva fila para {alumno}")
             
-            # Actualizar la materia específica (buscar la fila recién creada)
             todas_filas_nuevas = resp_sheet.get_all_values()
             for idx, fila in enumerate(todas_filas_nuevas, start=1):
                 if idx == 1:
@@ -646,6 +642,7 @@ def pdf():
     
     try:
         profesor = session['usuario']
+        nombre_completo = session.get('nombre_completo', profesor)
         materias_por_curso = session.get('materias_por_curso', {})
         
         estudiantes = est_sheet.get_all_records()
@@ -670,18 +667,21 @@ def pdf():
             except:
                 pass
         
-        pdf_buffer = generar_reporte_pdf(profesor, cursos, todas_materias, materias_por_curso, solo_marcadas=True)
+        pdf_buffer = generar_reporte_pdf(profesor, cursos, todas_materias, materias_por_curso, solo_marcadas=True, nombre_completo=nombre_completo)
         
         # Registrar la descarga
-        if incrementar_contador_descargas(profesor):
-            print(f"✅ Descarga registrada para {profesor}")
+        resultado_descarga = incrementar_contador_descargas(profesor)
+        if resultado_descarga:
+            print(f"✅ Descarga registrada para {profesor} - {nombre_completo}")
         else:
             print(f"⚠️ No se pudo registrar la descarga para {profesor}")
+        
+        nombre_limpio = nombre_completo.replace(' ', '_').replace('ñ', 'n').replace('Ñ', 'N')
         
         return send_file(
             pdf_buffer,
             as_attachment=True,
-            download_name=f"reporte_{profesor}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
+            download_name=f"reporte_{nombre_limpio}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
             mimetype='application/pdf'
         )
     
