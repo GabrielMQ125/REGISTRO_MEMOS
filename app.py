@@ -438,7 +438,7 @@ def login():
                 
                 return redirect('/panel')
             
-            return f"❌ Usuario '{usuario}' no encontrado"
+            return render_template('error.html', mensaje=f"Usuario '{usuario}' no encontrado")
         
         except Exception as e:
             print(f"Error en login: {e}")
