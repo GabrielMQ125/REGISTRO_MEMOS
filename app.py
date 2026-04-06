@@ -44,6 +44,8 @@ try:
     # Intentar obtener CONFIG, si no existe crear una
     try:
         config_sheet = spreadsheet.worksheet("CONFIG")
+        # Asegurar formato consistente
+        config_sheet.update('B2', 'TRUE')  # Forzar string
     except:
         config_sheet = spreadsheet.add_worksheet("CONFIG", rows=10, cols=2)
         config_sheet.append_row(["clave", "valor"])
@@ -70,7 +72,6 @@ def convertir_a_booleano(valor):
         return valor == 1 or valor == True
     if isinstance(valor, str):
         valor_limpio = valor.strip().upper()
-        # Valores que se consideran TRUE
         if valor_limpio in ['TRUE', 'VERDADERO', '1', 'YES', 'SI', 'X', '✓']:
             return True
         return False
@@ -128,12 +129,14 @@ def verificar_fecha_valida():
 def incrementar_contador_descargas(profesor):
     """Incrementa el contador de descargas para un profesor"""
     try:
+        # Asegurar que la hoja existe
         try:
             stats_sheet = spreadsheet.worksheet("ESTADISTICAS")
         except:
             stats_sheet = spreadsheet.add_worksheet("ESTADISTICAS", rows=100, cols=10)
             stats_sheet.append_row(["profesor", "descargas_pdf", "ultima_descarga"])
         
+        # Buscar el profesor
         registros = stats_sheet.get_all_records()
         fila_encontrada = None
         for idx, registro in enumerate(registros, start=2):
@@ -144,22 +147,24 @@ def incrementar_contador_descargas(profesor):
         ahora = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         
         if fila_encontrada:
+            # Actualizar existente
             descargas_actual = int(stats_sheet.cell(fila_encontrada, 2).value or 0)
             stats_sheet.update_cell(fila_encontrada, 2, descargas_actual + 1)
             stats_sheet.update_cell(fila_encontrada, 3, ahora)
+            print(f"✅ Descarga registrada: {profesor} - Total: {descargas_actual + 1}")
         else:
+            # Crear nuevo registro
             stats_sheet.append_row([profesor.upper(), 1, ahora])
+            print(f"✅ Nueva estadística creada para: {profesor}")
         
         return True
     except Exception as e:
-        print(f"Error actualizando contador: {e}")
+        print(f"❌ Error actualizando contador: {e}")
+        traceback.print_exc()
         return False
 
 def obtener_materias_por_curso(profesor_dict, cursos_disponibles):
-    """
-    Procesa la estructura: m1, cursos_m1, m2, cursos_m2, m3, cursos_m3
-    Retorna un diccionario: {curso: [lista de materias]}
-    """
+    """Procesa la estructura: m1, cursos_m1, m2, cursos_m2, m3, cursos_m3"""
     materias_por_curso = {curso: [] for curso in cursos_disponibles}
     
     for i in range(1, 4):
@@ -171,6 +176,9 @@ def obtener_materias_por_curso(profesor_dict, cursos_disponibles):
         
         try:
             materia_id_int = int(float(materia_id))
+            # Validar que la materia existe
+            if materia_id_int <= 0 or materia_id_int > 15:
+                continue
         except:
             continue
         
@@ -248,7 +256,7 @@ def generar_reporte_pdf(profesor, cursos_data, todas_materias, materias_por_curs
         
         materias_a_mostrar = {}
         for materia_id in materias_curso_ids:
-            if materia_id in todas_materias:
+            if materia_id in todas_materias and todas_materias[materia_id]:  # Validar nombre no vacío
                 if solo_marcadas:
                     tiene_marcada = False
                     for alumno in alumnos:
@@ -462,19 +470,19 @@ def panel():
                 if nombre not in cursos[curso] and nombre:
                     cursos[curso].append(nombre)
         
-        # Obtener todas las materias disponibles
+        # Obtener todas las materias disponibles (filtrar nombres vacíos)
         materias_data = mat_sheet.get_all_records()
         todas_materias = {}
         for m in materias_data:
             try:
                 id_materia = int(float(m.get('id', 0)))
-                nombre_materia = str(m.get('nombre', ''))
-                if id_materia > 0 and nombre_materia:
+                nombre_materia = str(m.get('nombre', '')).strip()
+                if id_materia > 0 and nombre_materia and nombre_materia != '':
                     todas_materias[id_materia] = nombre_materia
             except Exception as e:
                 continue
         
-        # ========== CARGA DE ESTADOS PREVIOS (AUTOGUARDADO) ==========
+        # ========== CARGA DE ESTADOS PREVIOS (CORREGIDO) ==========
         todas_respuestas = resp_sheet.get_all_records()
         estado = {}
         contador_cargados = 0
@@ -488,6 +496,7 @@ def panel():
                 alumno = respuesta.get('alumno', '')
                 
                 if curso and alumno and alumno.strip():
+                    # Cargar TODAS las materias (True y False)
                     for i in range(1, 16):
                         columna = f"m{i}"
                         valor = respuesta.get(columna, False)
@@ -495,15 +504,22 @@ def panel():
                         # Convertir el valor a booleano correctamente
                         valor_bool = convertir_a_booleano(valor)
                         
-                        if valor_bool:  # Solo guardar si es True para ahorrar memoria
-                            key = f"{curso}_{alumno}_{i}"
-                            estado[key] = valor_bool
-                            contador_cargados += 1
-                            print(f"   Cargado: {curso} - {alumno} - M{i} = {valor_bool}")
+                        # Guardar siempre el estado (tanto True como False)
+                        key = f"{curso}_{alumno}_{i}"
+                        estado[key] = valor_bool
+                        contador_cargados += 1
+                        
+                        if valor_bool:
+                            print(f"   Cargado marcado: {curso} - {alumno} - M{i}")
         
         print(f"✅ Total estados cargados: {contador_cargados}")
         
-        # Guardar en sesión
+        # Limpiar estados anteriores en sesión
+        keys_to_remove = [key for key in session.keys() if key.startswith('estado_temp_')]
+        for key in keys_to_remove:
+            session.pop(key, None)
+        
+        # Guardar nuevos estados en sesión
         for key, value in estado.items():
             session[f"estado_temp_{key}"] = value
         
@@ -549,12 +565,12 @@ def guardar():
         
         print(f"💾 Guardando: {profesor} - {curso} - {alumno} - M{materia} = {valor_texto}")
         
-        # Buscar si ya existe registro
+        # Buscar si ya existe registro para este profesor/curso/alumno
         todas_filas = resp_sheet.get_all_values()
         
         num_fila = None
         for idx, fila in enumerate(todas_filas, start=1):
-            if idx == 1:
+            if idx == 1:  # Saltar encabezados
                 continue
             if len(fila) >= 3:
                 fila_profesor = fila[0].strip().upper() if len(fila) > 0 else ""
@@ -567,25 +583,35 @@ def guardar():
                     num_fila = idx
                     break
         
-        # Columna m{materia} está en posición 3 + (materia-1)
-        columna_materia = 3 + (materia - 1)
+        # CORRECCIÓN: La columna m{materia} está en posición: 
+        # A=1(profesor), B=2(curso), C=3(alumno), D=4(m1), E=5(m2), ..., R=18(m15)
+        columna_materia = 4 + (materia - 1)  # m1=4, m2=5, m3=6, ..., m15=18
         
         if num_fila:
             # Actualizar registro existente
             resp_sheet.update_cell(num_fila, columna_materia, valor_texto)
-            resp_sheet.update_cell(num_fila, 19, fecha)
-            print(f"   Actualizada fila {num_fila}")
+            # Actualizar fecha en columna S (19)
+            if len(todas_filas[num_fila-1]) >= 19:
+                resp_sheet.update_cell(num_fila, 19, fecha)
+            else:
+                # Si la fila no tiene suficiente columnas, expandir
+                valores_actuales = resp_sheet.row_values(num_fila)
+                while len(valores_actuales) < 19:
+                    valores_actuales.append('')
+                valores_actuales[18] = fecha
+                resp_sheet.update(f'A{num_fila}:S{num_fila}', [valores_actuales])
+            print(f"   Actualizada fila {num_fila}, columna {columna_materia}")
         else:
             # Crear nuevo registro con todas las materias en FALSE
             nueva_fila = [profesor, curso, alumno]
             for i in range(15):
                 nueva_fila.append("FALSE")
-            nueva_fila.append(fecha)
+            nueva_fila.append(fecha)  # fecha en columna 19
             
             resp_sheet.append_row(nueva_fila)
             print(f"   Creada nueva fila para {alumno}")
             
-            # Actualizar la materia específica
+            # Actualizar la materia específica (buscar la fila recién creada)
             todas_filas_nuevas = resp_sheet.get_all_values()
             for idx, fila in enumerate(todas_filas_nuevas, start=1):
                 if idx == 1:
@@ -605,7 +631,7 @@ def guardar():
         return jsonify({"success": True, "mensaje": "Guardado correctamente"})
         
     except Exception as e:
-        print(f"Error en guardar: {e}")
+        print(f"❌ Error en guardar: {e}")
         print(traceback.format_exc())
         return jsonify({"success": False, "error": str(e)}), 500
 
@@ -638,15 +664,19 @@ def pdf():
         for m in materias_data:
             try:
                 id_materia = int(float(m.get('id', 0)))
-                nombre_materia = str(m.get('nombre', ''))
-                if id_materia > 0 and nombre_materia:
+                nombre_materia = str(m.get('nombre', '')).strip()
+                if id_materia > 0 and nombre_materia and nombre_materia != '':
                     todas_materias[id_materia] = nombre_materia
             except:
                 pass
         
         pdf_buffer = generar_reporte_pdf(profesor, cursos, todas_materias, materias_por_curso, solo_marcadas=True)
         
-        incrementar_contador_descargas(profesor)
+        # Registrar la descarga
+        if incrementar_contador_descargas(profesor):
+            print(f"✅ Descarga registrada para {profesor}")
+        else:
+            print(f"⚠️ No se pudo registrar la descarga para {profesor}")
         
         return send_file(
             pdf_buffer,
@@ -656,7 +686,7 @@ def pdf():
         )
     
     except Exception as e:
-        print(f"Error en PDF: {e}")
+        print(f"❌ Error en PDF: {e}")
         print(traceback.format_exc())
         return f"Error al generar PDF: {e}"
 
@@ -716,7 +746,7 @@ def debug_estado():
     return jsonify({
         "usuario": session['usuario'],
         "total_estados": len(estados),
-        "estados": list(estados.keys())[:20],  # Mostrar primeros 20
+        "estados": list(estados.keys())[:20],
         "ejemplo": dict(list(estados.items())[:5]) if estados else {}
     })
 
