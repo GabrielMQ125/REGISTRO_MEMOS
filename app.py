@@ -199,6 +199,7 @@ def obtener_materias_por_curso(profesor_dict, cursos_disponibles):
     return materias_por_curso
 
 def generar_reporte_pdf(profesor, cursos_data, todas_materias, materias_por_curso, solo_marcadas=True, nombre_completo=""):
+    """Genera reporte PDF con búsqueda inteligente en sesión (primero original, luego normalizado)"""
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=letter,
                            rightMargin=30, leftMargin=30,
@@ -263,17 +264,16 @@ def generar_reporte_pdf(profesor, cursos_data, todas_materias, materias_por_curs
                 if solo_marcadas:
                     tiene_marcada = False
                     for alumno in alumnos:
-                        # NORMALIZACIÓN SOLO PARA BUSCAR EN SESIÓN
-                        alumno_norm = normalizar_texto(alumno)
-                        curso_norm = normalizar_texto(curso_nombre)
-                        key_norm = f"{curso_norm}_{alumno_norm}_{materia_id}"
-                        
-                        # Buscar también con clave original por compatibilidad
+                        # PRIMERO buscar con clave ORIGINAL (como se guarda en sesión)
                         key_original = f"{curso_nombre}_{alumno}_{materia_id}"
+                        estado_valor = session.get(f"estado_temp_{key_original}", False)
                         
-                        estado_valor = session.get(f"estado_temp_{key_norm}", False)
+                        # Si no encuentra, buscar con NORMALIZADO (compatibilidad hacia atrás)
                         if not estado_valor:
-                            estado_valor = session.get(f"estado_temp_{key_original}", False)
+                            alumno_norm = normalizar_texto(alumno)
+                            curso_norm = normalizar_texto(curso_nombre)
+                            key_norm = f"{curso_norm}_{alumno_norm}_{materia_id}"
+                            estado_valor = session.get(f"estado_temp_{key_norm}", False)
                         
                         if estado_valor:
                             tiene_marcada = True
@@ -299,15 +299,16 @@ def generar_reporte_pdf(profesor, cursos_data, todas_materias, materias_por_curs
             tiene_alguna_marcada = False
             
             for materia_id in materias_a_mostrar.keys():
-                # NORMALIZACIÓN SOLO PARA BUSCAR EN SESIÓN
-                alumno_norm = normalizar_texto(alumno)
-                curso_norm = normalizar_texto(curso_nombre)
-                key_norm = f"{curso_norm}_{alumno_norm}_{materia_id}"
+                # PRIMERO buscar con clave ORIGINAL
                 key_original = f"{curso_nombre}_{alumno}_{materia_id}"
+                estado_valor = session.get(f"estado_temp_{key_original}", False)
                 
-                estado_valor = session.get(f"estado_temp_{key_norm}", False)
+                # Si no encuentra, buscar con NORMALIZADO
                 if not estado_valor:
-                    estado_valor = session.get(f"estado_temp_{key_original}", False)
+                    alumno_norm = normalizar_texto(alumno)
+                    curso_norm = normalizar_texto(curso_nombre)
+                    key_norm = f"{curso_norm}_{alumno_norm}_{materia_id}"
+                    estado_valor = session.get(f"estado_temp_{key_norm}", False)
                 
                 if estado_valor:
                     fila.append("✓")
@@ -517,7 +518,6 @@ def panel():
                         columna = f"m{i}"
                         valor = respuesta.get(columna, False)
                         valor_bool = convertir_a_booleano(valor)
-                        # Guardar clave SIN normalizar para mantener compatibilidad
                         key = f"{curso}_{alumno}_{i}"
                         estado[key] = valor_bool
                         contador_cargados += 1
@@ -567,7 +567,7 @@ def guardar():
         
         valor_texto = booleano_a_texto(valor)
         
-        # Guardar en sesión con clave original (sin normalizar)
+        # Guardar en sesión con clave ORIGINAL (sin normalizar)
         key = f"{curso}_{alumno}_{materia}"
         session[f"estado_temp_{key}"] = valor
         
