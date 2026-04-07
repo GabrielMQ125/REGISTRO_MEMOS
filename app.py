@@ -23,9 +23,9 @@ scope = ["https://spreadsheets.google.com/feeds",
 
 IN_PRODUCTION = os.environ.get('RENDER', False)
 
-# ==================== FUNCIÓN DE NORMALIZACIÓN SOLO PARA COMPARACIÓN ====================
+# ==================== FUNCIÓN DE NORMALIZACIÓN ====================
 def normalizar_texto(texto):
-    """Normaliza texto SOLO para comparación (no modifica lo que se guarda o muestra)"""
+    """Normaliza texto SOLO para comparación"""
     if not texto:
         return ""
     texto = str(texto).strip().upper()
@@ -33,7 +33,33 @@ def normalizar_texto(texto):
     texto = ''.join(c for c in unicodedata.normalize('NFD', texto) 
                     if unicodedata.category(c) != 'Mn')
     return texto
-# =======================================================================================
+
+def obtener_estados_desde_sheets(profesor):
+    """Obtiene TODOS los estados desde Google Sheets para un profesor"""
+    try:
+        todas_respuestas = resp_sheet.get_all_records()
+        estados = {}
+        
+        for respuesta in todas_respuestas:
+            profesor_resp = respuesta.get('profesor', '')
+            if profesor_resp and normalizar_texto(profesor_resp) == normalizar_texto(profesor):
+                curso = respuesta.get('curso', '')
+                alumno = respuesta.get('alumno', '')
+                
+                if curso and alumno:
+                    for i in range(1, 16):
+                        columna = f"m{i}"
+                        valor = respuesta.get(columna, False)
+                        valor_bool = convertir_a_booleano(valor)
+                        key = f"{curso}_{alumno}_{i}"
+                        estados[key] = valor_bool
+        
+        print(f"📥 Desde Sheets: {len(estados)} estados encontrados para {profesor}")
+        return estados
+    except Exception as e:
+        print(f"❌ Error obteniendo estados desde Sheets: {e}")
+        return {}
+# ====================================================================
 
 try:
     if IN_PRODUCTION:
@@ -198,8 +224,8 @@ def obtener_materias_por_curso(profesor_dict, cursos_disponibles):
     
     return materias_por_curso
 
-def generar_reporte_pdf(profesor, cursos_data, todas_materias, materias_por_curso, solo_marcadas=True, nombre_completo=""):
-    """Genera reporte PDF con búsqueda inteligente en sesión (primero original, luego normalizado)"""
+def generar_reporte_pdf(profesor, cursos_data, todas_materias, materias_por_curso, estados_data, solo_marcadas=True, nombre_completo=""):
+    """Genera reporte PDF usando estados PASADOS como parámetro (desde Sheets)"""
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=letter,
                            rightMargin=30, leftMargin=30,
@@ -264,18 +290,9 @@ def generar_reporte_pdf(profesor, cursos_data, todas_materias, materias_por_curs
                 if solo_marcadas:
                     tiene_marcada = False
                     for alumno in alumnos:
-                        # PRIMERO buscar con clave ORIGINAL (como se guarda en sesión)
-                        key_original = f"{curso_nombre}_{alumno}_{materia_id}"
-                        estado_valor = session.get(f"estado_temp_{key_original}", False)
-                        
-                        # Si no encuentra, buscar con NORMALIZADO (compatibilidad hacia atrás)
-                        if not estado_valor:
-                            alumno_norm = normalizar_texto(alumno)
-                            curso_norm = normalizar_texto(curso_nombre)
-                            key_norm = f"{curso_norm}_{alumno_norm}_{materia_id}"
-                            estado_valor = session.get(f"estado_temp_{key_norm}", False)
-                        
-                        if estado_valor:
+                        # Buscar en estados_data (que viene de Sheets)
+                        key = f"{curso_nombre}_{alumno}_{materia_id}"
+                        if estados_data.get(key, False):
                             tiene_marcada = True
                             break
                     if tiene_marcada:
@@ -299,16 +316,8 @@ def generar_reporte_pdf(profesor, cursos_data, todas_materias, materias_por_curs
             tiene_alguna_marcada = False
             
             for materia_id in materias_a_mostrar.keys():
-                # PRIMERO buscar con clave ORIGINAL
-                key_original = f"{curso_nombre}_{alumno}_{materia_id}"
-                estado_valor = session.get(f"estado_temp_{key_original}", False)
-                
-                # Si no encuentra, buscar con NORMALIZADO
-                if not estado_valor:
-                    alumno_norm = normalizar_texto(alumno)
-                    curso_norm = normalizar_texto(curso_nombre)
-                    key_norm = f"{curso_norm}_{alumno_norm}_{materia_id}"
-                    estado_valor = session.get(f"estado_temp_{key_norm}", False)
+                key = f"{curso_nombre}_{alumno}_{materia_id}"
+                estado_valor = estados_data.get(key, False)
                 
                 if estado_valor:
                     fila.append("✓")
@@ -501,41 +510,22 @@ def panel():
             except Exception as e:
                 continue
         
-        todas_respuestas = resp_sheet.get_all_records()
-        estado = {}
-        contador_cargados = 0
+        # Cargar estados desde Sheets para el panel
+        estados = obtener_estados_desde_sheets(usuario)
         
-        print(f"📥 Cargando respuestas previas para {usuario}...")
-        
-        for respuesta in todas_respuestas:
-            profesor_resp = respuesta.get('profesor', '')
-            if profesor_resp and str(profesor_resp).strip().upper() == usuario:
-                curso = respuesta.get('curso', '')
-                alumno = respuesta.get('alumno', '')
-                
-                if curso and alumno and alumno.strip():
-                    for i in range(1, 16):
-                        columna = f"m{i}"
-                        valor = respuesta.get(columna, False)
-                        valor_bool = convertir_a_booleano(valor)
-                        key = f"{curso}_{alumno}_{i}"
-                        estado[key] = valor_bool
-                        contador_cargados += 1
-        
-        print(f"✅ Total estados cargados: {contador_cargados}")
-        
+        # Limpiar y actualizar sesión para el panel
         keys_to_remove = [key for key in session.keys() if key.startswith('estado_temp_')]
         for key in keys_to_remove:
             session.pop(key, None)
         
-        for key, value in estado.items():
+        for key, value in estados.items():
             session[f"estado_temp_{key}"] = value
         
         return render_template('panel.html',
                                cursos=cursos,
                                todas_materias=todas_materias,
                                materias_por_curso=materias_por_curso,
-                               estado=estado,
+                               estado=estados,
                                usuario=usuario,
                                nombre_completo=session.get('nombre_completo', usuario))
     
@@ -567,13 +557,13 @@ def guardar():
         
         valor_texto = booleano_a_texto(valor)
         
-        # Guardar en sesión con clave ORIGINAL (sin normalizar)
+        # Guardar en sesión
         key = f"{curso}_{alumno}_{materia}"
         session[f"estado_temp_{key}"] = valor
         
         print(f"💾 Guardando: {profesor} - {curso} - {alumno} - M{materia} = {valor_texto}")
         
-        # Buscar si ya existe registro para este curso+alumno usando NORMALIZACIÓN para evitar duplicados
+        # Buscar si ya existe registro usando normalización
         todas_filas = resp_sheet.get_all_values()
         
         num_fila = None
@@ -587,7 +577,6 @@ def guardar():
                 fila_curso = fila[1].strip() if len(fila) > 1 else ""
                 fila_alumno = fila[2].strip() if len(fila) > 2 else ""
                 
-                # Comparación NORMALIZADA para evitar duplicados
                 if normalizar_texto(fila_curso) == curso_norm and normalizar_texto(fila_alumno) == alumno_norm:
                     num_fila = idx
                     break
@@ -595,7 +584,6 @@ def guardar():
         columna_materia = 4 + (materia - 1)
         
         if num_fila:
-            # Actualizar la materia específica
             resp_sheet.update_cell(num_fila, columna_materia, valor_texto)
             resp_sheet.update_cell(num_fila, 1, profesor)
             
@@ -610,7 +598,6 @@ def guardar():
             
             print(f"   Actualizada fila {num_fila}")
         else:
-            # Crear nueva fila con los nombres ORIGINALES (tal cual llegaron)
             nueva_fila = [profesor, curso, alumno]
             for i in range(15):
                 nueva_fila.append("FALSE")
@@ -619,7 +606,6 @@ def guardar():
             resp_sheet.append_row(nueva_fila)
             print(f"   Creada nueva fila para {alumno}")
             
-            # Actualizar la materia específica en la fila recién creada
             todas_filas_nuevas = resp_sheet.get_all_values()
             for idx, fila in enumerate(todas_filas_nuevas, start=1):
                 if idx == 1:
@@ -676,7 +662,11 @@ def pdf():
             except:
                 pass
         
-        pdf_buffer = generar_reporte_pdf(profesor, cursos, todas_materias, materias_por_curso, solo_marcadas=True, nombre_completo=nombre_completo)
+        # 🔴 CLAVE: Obtener estados DIRECTAMENTE desde Google Sheets
+        estados = obtener_estados_desde_sheets(profesor)
+        print(f"📊 PDF: {len(estados)} estados cargados desde Sheets para {profesor}")
+        
+        pdf_buffer = generar_reporte_pdf(profesor, cursos, todas_materias, materias_por_curso, estados, solo_marcadas=True, nombre_completo=nombre_completo)
         
         incrementar_contador_descargas(profesor)
         
