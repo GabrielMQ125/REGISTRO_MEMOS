@@ -23,9 +23,9 @@ scope = ["https://spreadsheets.google.com/feeds",
 
 IN_PRODUCTION = os.environ.get('RENDER', False)
 
-# ==================== FUNCIÓN DE NORMALIZACIÓN ====================
+# ==================== FUNCIÓN DE NORMALIZACIÓN SOLO PARA COMPARACIÓN ====================
 def normalizar_texto(texto):
-    """Normaliza texto para comparación consistente entre sesión y Google Sheets"""
+    """Normaliza texto SOLO para comparación (no modifica lo que se guarda o muestra)"""
     if not texto:
         return ""
     texto = str(texto).strip().upper()
@@ -33,41 +33,7 @@ def normalizar_texto(texto):
     texto = ''.join(c for c in unicodedata.normalize('NFD', texto) 
                     if unicodedata.category(c) != 'Mn')
     return texto
-
-def obtener_estado_sesion(curso, alumno, materia):
-    """
-    Obtiene el estado de una evaluación desde la sesión.
-    Compatibilidad hacia atrás: busca primero con nombre normalizado,
-    luego con el nombre original.
-    """
-    alumno_norm = normalizar_texto(alumno)
-    key_norm = f"{curso}_{alumno_norm}_{materia}"
-    
-    # Buscar con nombre normalizado
-    if session.get(f"estado_temp_{key_norm}") is not None:
-        return session[f"estado_temp_{key_norm}"]
-    
-    # Compatibilidad hacia atrás: buscar con nombre original
-    key_original = f"{curso}_{alumno}_{materia}"
-    if session.get(f"estado_temp_{key_original}") is not None:
-        return session[f"estado_temp_{key_original}"]
-    
-    return False
-
-def guardar_estado_sesion(curso, alumno, materia, valor):
-    """Guarda el estado en sesión usando nombre normalizado"""
-    alumno_norm = normalizar_texto(alumno)
-    key = f"{curso}_{alumno_norm}_{materia}"
-    session[f"estado_temp_{key}"] = valor
-    return key
-
-def limpiar_estados_sesion():
-    """Elimina todos los estados temporales de la sesión"""
-    keys_to_remove = [key for key in session.keys() if key.startswith('estado_temp_')]
-    for key in keys_to_remove:
-        session.pop(key, None)
-
-# ====================================================================
+# =======================================================================================
 
 try:
     if IN_PRODUCTION:
@@ -220,7 +186,7 @@ def obtener_materias_por_curso(profesor_dict, cursos_disponibles):
             continue
         
         if cursos_str and str(cursos_str).strip():
-            cursos_aplicacion = [normalizar_texto(c) for c in str(cursos_str).split(',') if c.strip()]
+            cursos_aplicacion = [c.strip() for c in str(cursos_str).split(',') if c.strip()]
             
             for curso in cursos_aplicacion:
                 if curso in materias_por_curso:
@@ -297,7 +263,19 @@ def generar_reporte_pdf(profesor, cursos_data, todas_materias, materias_por_curs
                 if solo_marcadas:
                     tiene_marcada = False
                     for alumno in alumnos:
-                        if obtener_estado_sesion(curso_nombre, alumno, materia_id):
+                        # NORMALIZACIÓN SOLO PARA BUSCAR EN SESIÓN
+                        alumno_norm = normalizar_texto(alumno)
+                        curso_norm = normalizar_texto(curso_nombre)
+                        key_norm = f"{curso_norm}_{alumno_norm}_{materia_id}"
+                        
+                        # Buscar también con clave original por compatibilidad
+                        key_original = f"{curso_nombre}_{alumno}_{materia_id}"
+                        
+                        estado_valor = session.get(f"estado_temp_{key_norm}", False)
+                        if not estado_valor:
+                            estado_valor = session.get(f"estado_temp_{key_original}", False)
+                        
+                        if estado_valor:
                             tiene_marcada = True
                             break
                     if tiene_marcada:
@@ -321,7 +299,15 @@ def generar_reporte_pdf(profesor, cursos_data, todas_materias, materias_por_curs
             tiene_alguna_marcada = False
             
             for materia_id in materias_a_mostrar.keys():
-                estado_valor = obtener_estado_sesion(curso_nombre, alumno, materia_id)
+                # NORMALIZACIÓN SOLO PARA BUSCAR EN SESIÓN
+                alumno_norm = normalizar_texto(alumno)
+                curso_norm = normalizar_texto(curso_nombre)
+                key_norm = f"{curso_norm}_{alumno_norm}_{materia_id}"
+                key_original = f"{curso_nombre}_{alumno}_{materia_id}"
+                
+                estado_valor = session.get(f"estado_temp_{key_norm}", False)
+                if not estado_valor:
+                    estado_valor = session.get(f"estado_temp_{key_original}", False)
                 
                 if estado_valor:
                     fila.append("✓")
@@ -444,7 +430,7 @@ def login():
                     cursos_str = profesor_dict.get(f'cursos_m{i}', '')
                     if cursos_str:
                         for c in str(cursos_str).split(','):
-                            curso_limpio = normalizar_texto(c)
+                            curso_limpio = c.strip()
                             if curso_limpio:
                                 cursos_set.add(curso_limpio)
                 
@@ -494,16 +480,14 @@ def panel():
         cursos = {}
         
         for est in estudiantes:
-            curso = normalizar_texto(est.get('curso', ''))
-            nombre_original = str(est.get('nombre', '')).strip()
-            nombre_normalizado = normalizar_texto(nombre_original)
+            curso = str(est.get('curso', '')).strip()
+            nombre = str(est.get('nombre', '')).strip()
             
-            if curso and nombre_normalizado and curso in cursos_profesor:
+            if curso and nombre and curso in cursos_profesor:
                 if curso not in cursos:
                     cursos[curso] = []
-                # Guardar el nombre original para mostrar en el panel
-                if nombre_original not in cursos[curso] and nombre_original:
-                    cursos[curso].append(nombre_original)
+                if nombre not in cursos[curso] and nombre:
+                    cursos[curso].append(nombre)
         
         materias_data = mat_sheet.get_all_records()
         todas_materias = {}
@@ -529,18 +513,20 @@ def panel():
                 alumno = respuesta.get('alumno', '')
                 
                 if curso and alumno and alumno.strip():
-                    alumno_normalizado = normalizar_texto(alumno)
                     for i in range(1, 16):
                         columna = f"m{i}"
                         valor = respuesta.get(columna, False)
                         valor_bool = convertir_a_booleano(valor)
-                        key = f"{curso}_{alumno_normalizado}_{i}"
+                        # Guardar clave SIN normalizar para mantener compatibilidad
+                        key = f"{curso}_{alumno}_{i}"
                         estado[key] = valor_bool
                         contador_cargados += 1
         
         print(f"✅ Total estados cargados: {contador_cargados}")
         
-        limpiar_estados_sesion()
+        keys_to_remove = [key for key in session.keys() if key.startswith('estado_temp_')]
+        for key in keys_to_remove:
+            session.pop(key, None)
         
         for key, value in estado.items():
             session[f"estado_temp_{key}"] = value
@@ -581,30 +567,35 @@ def guardar():
         
         valor_texto = booleano_a_texto(valor)
         
-        guardar_estado_sesion(curso, alumno, materia, valor)
-        
-        curso_normalizado = normalizar_texto(curso)
-        alumno_normalizado = normalizar_texto(alumno)
+        # Guardar en sesión con clave original (sin normalizar)
+        key = f"{curso}_{alumno}_{materia}"
+        session[f"estado_temp_{key}"] = valor
         
         print(f"💾 Guardando: {profesor} - {curso} - {alumno} - M{materia} = {valor_texto}")
         
+        # Buscar si ya existe registro para este curso+alumno usando NORMALIZACIÓN para evitar duplicados
         todas_filas = resp_sheet.get_all_values()
         
         num_fila = None
+        curso_norm = normalizar_texto(curso)
+        alumno_norm = normalizar_texto(alumno)
+        
         for idx, fila in enumerate(todas_filas, start=1):
             if idx == 1:
                 continue
             if len(fila) >= 3:
-                fila_curso = normalizar_texto(fila[1]) if len(fila) > 1 else ""
-                fila_alumno = normalizar_texto(fila[2]) if len(fila) > 2 else ""
+                fila_curso = fila[1].strip() if len(fila) > 1 else ""
+                fila_alumno = fila[2].strip() if len(fila) > 2 else ""
                 
-                if fila_curso == curso_normalizado and fila_alumno == alumno_normalizado:
+                # Comparación NORMALIZADA para evitar duplicados
+                if normalizar_texto(fila_curso) == curso_norm and normalizar_texto(fila_alumno) == alumno_norm:
                     num_fila = idx
                     break
         
         columna_materia = 4 + (materia - 1)
         
         if num_fila:
+            # Actualizar la materia específica
             resp_sheet.update_cell(num_fila, columna_materia, valor_texto)
             resp_sheet.update_cell(num_fila, 1, profesor)
             
@@ -619,6 +610,7 @@ def guardar():
             
             print(f"   Actualizada fila {num_fila}")
         else:
+            # Crear nueva fila con los nombres ORIGINALES (tal cual llegaron)
             nueva_fila = [profesor, curso, alumno]
             for i in range(15):
                 nueva_fila.append("FALSE")
@@ -627,15 +619,16 @@ def guardar():
             resp_sheet.append_row(nueva_fila)
             print(f"   Creada nueva fila para {alumno}")
             
+            # Actualizar la materia específica en la fila recién creada
             todas_filas_nuevas = resp_sheet.get_all_values()
             for idx, fila in enumerate(todas_filas_nuevas, start=1):
                 if idx == 1:
                     continue
                 if len(fila) >= 3:
-                    fila_curso = normalizar_texto(fila[1]) if len(fila) > 1 else ""
-                    fila_alumno = normalizar_texto(fila[2]) if len(fila) > 2 else ""
+                    fila_curso = fila[1].strip() if len(fila) > 1 else ""
+                    fila_alumno = fila[2].strip() if len(fila) > 2 else ""
                     
-                    if fila_curso == curso_normalizado and fila_alumno == alumno_normalizado:
+                    if normalizar_texto(fila_curso) == curso_norm and normalizar_texto(fila_alumno) == alumno_norm:
                         resp_sheet.update_cell(idx, columna_materia, valor_texto)
                         print(f"   Actualizada materia M{materia} en fila {idx}")
                         break
@@ -664,15 +657,13 @@ def pdf():
         estudiantes = est_sheet.get_all_records()
         cursos = {}
         for est in estudiantes:
-            curso = normalizar_texto(est.get('curso', ''))
-            nombre_normalizado = normalizar_texto(est.get('nombre', ''))
-            nombre_original = str(est.get('nombre', '')).strip()
-            
-            if curso and nombre_normalizado and curso in session['cursos']:
+            curso = str(est.get('curso', '')).strip()
+            nombre = str(est.get('nombre', '')).strip()
+            if curso and nombre and curso in session['cursos']:
                 if curso not in cursos:
                     cursos[curso] = []
-                if nombre_original not in cursos[curso] and nombre_original:
-                    cursos[curso].append(nombre_original)
+                if nombre not in cursos[curso] and nombre:
+                    cursos[curso].append(nombre)
         
         materias_data = mat_sheet.get_all_records()
         todas_materias = {}
@@ -705,7 +696,10 @@ def pdf():
 
 @app.route('/logout')
 def logout():
-    limpiar_estados_sesion()
+    keys_to_remove = [key for key in session.keys() if key.startswith('estado_temp_')]
+    for key in keys_to_remove:
+        session.pop(key, None)
+    
     session.clear()
     return redirect('/')
 
