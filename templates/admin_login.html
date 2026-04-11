@@ -5,12 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin - Sistema de Evaluación</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
+        * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background: linear-gradient(135deg, #2d3748 0%, #1a202c 100%);
@@ -19,7 +14,6 @@
             justify-content: center;
             align-items: center;
         }
-        
         .login-container {
             background: white;
             padding: 40px;
@@ -28,14 +22,7 @@
             width: 100%;
             max-width: 400px;
         }
-        
-        h2 {
-            text-align: center;
-            color: #2d3748;
-            margin-bottom: 10px;
-            font-size: 28px;
-        }
-        
+        h2 { text-align: center; color: #2d3748; margin-bottom: 10px; font-size: 28px; }
         .admin-badge {
             text-align: center;
             margin-bottom: 25px;
@@ -45,23 +32,18 @@
             letter-spacing: 2px;
             font-weight: 600;
         }
-        
         input[type="password"] {
             width: 100%;
             padding: 15px;
             border: 2px solid #e2e8f0;
             border-radius: 10px;
             font-size: 16px;
-            transition: all 0.3s;
             margin-bottom: 20px;
         }
-        
         input[type="password"]:focus {
             outline: none;
             border-color: #e53e3e;
-            box-shadow: 0 0 0 3px rgba(229, 62, 62, 0.1);
         }
-        
         button {
             width: 100%;
             padding: 15px;
@@ -72,55 +54,24 @@
             font-size: 16px;
             font-weight: bold;
             cursor: pointer;
-            transition: transform 0.2s;
         }
-        
-        button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 20px rgba(0,0,0,0.3);
-        }
-        
-        .error {
-            color: #e53e3e;
-            text-align: center;
-            margin-top: 15px;
-            font-size: 14px;
-        }
-        
-        .back-link {
-            text-align: center;
-            margin-top: 20px;
-        }
-        
-        .back-link a {
-            color: #718096;
-            text-decoration: none;
-            font-size: 14px;
-        }
-        
-        .back-link a:hover {
-            color: #2d3748;
-            text-decoration: underline;
-        }
+        button:hover { transform: translateY(-2px); }
+        .error { color: #e53e3e; text-align: center; margin-top: 15px; }
+        .back-link { text-align: center; margin-top: 20px; }
+        .back-link a { color: #718096; text-decoration: none; }
+        .back-link a:hover { color: #2d3748; }
     </style>
 </head>
 <body>
     <div class="login-container">
         <h2>🔐 Administración</h2>
         <div class="admin-badge">Acceso Restringido</div>
-        
         <form method="POST">
-            <input type="password" name="admin_password" placeholder="Contraseña de administrador" required autofocus>
+            <input type="password" name="admin_password" placeholder="Contraseña" required autofocus>
             <button type="submit">Ingresar</button>
         </form>
-        
-        {% if error %}
-        <div class="error">{{ error }}</div>
-        {% endif %}
-        
-        <div class="back-link">
-            <a href="/">← Volver al login de profesores</a>
-        </div>
+        {% if error %}<div class="error">{{ error }}</div>{% endif %}
+        <div class="back-link"><a href="/">← Volver al login</a></div>
     </div>
 </body>
 </html>
