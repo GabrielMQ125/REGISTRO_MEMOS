@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Detalle del Profesor - {{ profesor.usuario }}</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f5f5;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px 0;
+        }
+        
+        .header-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .nav a {
+            color: white;
+            text-decoration: none;
+            padding: 8px 16px;
+            border-radius: 5px;
+        }
+        
+        .nav a:hover {
+            background: rgba(255,255,255,0.2);
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 30px auto;
+            padding: 0 20px;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 10px;
+            padding: 25px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .info-item {
+            padding: 10px;
+            border-left: 3px solid #667eea;
+        }
+        
+        .info-label {
+            font-weight: 600;
+            color: #666;
+            font-size: 12px;
+            text-transform: uppercase;
+            margin-bottom: 5px;
+        }
+        
+        .info-value {
+            font-size: 16px;
+            color: #333;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+        
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        th {
+            background: #f8f9fa;
+            font-weight: 600;
+        }
+        
+        .btn {
+            display: inline-block;
+            padding: 10px 20px;
+            background: #667eea;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            margin-top: 15px;
+            margin-right: 10px;
+        }
+        
+        .btn:hover {
+            background: #5a67d8;
+        }
+        
+        .btn-success {
+            background: #28a745;
+        }
+        
+        .btn-success:hover {
+            background: #218838;
+        }
+        
+        .badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        
+        .badge-info {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+        
+        .cursos-container span {
+            display: inline-block;
+            background: #e7f3ff;
+            padding: 4px 10px;
+            border-radius: 5px;
+            margin: 3px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="header-content">
+            <h1>👨‍🏫 Detalle del Profesor</h1>
+            <div class="nav">
+                <a href="/admin/panel">← Volver al Panel</a>
+                <a href="/admin/logout">Cerrar Sesión</a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="container">
+        <div class="card">
+            <div class="info-grid">
+                <div class="info-item">
+                    <div class="info-label">Usuario</div>
+                    <div class="info-value">{{ profesor.usuario }}</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Nombre Completo</div>
+                    <div class="info-value">{{ profesor.nombre_completo }}</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Total Evaluaciones</div>
+                    <div class="info-value">{{ profesor.total_evaluaciones }}</div>
+                </div>
+            </div>
+            
+            <div class="info-item">
+                <div class="info-label">Cursos Asignados</div>
+                <div class="info-value cursos-container">
+                    {% for curso in profesor.cursos %}
+                    <span>{{ curso }}</span>
+                    {% endfor %}
+                </div>
+            </div>
+            
+            <div class="info-item">
+                <div class="info-label">Materias Asignadas</div>
+                <div class="info-value">
+                    {% if profesor.materia1 %}
+                    <span class="badge badge-info">Materia 1: {{ profesor.materia1 }} (Cursos: {{ profesor.cursos_m1 }})</span><br>
+                    {% endif %}
+                    {% if profesor.materia2 %}
+                    <span class="badge badge-info">Materia 2: {{ profesor.materia2 }} (Cursos: {{ profesor.cursos_m2 }})</span><br>
+                    {% endif %}
+                    {% if profesor.materia3 %}
+                    <span class="badge badge-info">Materia 3: {{ profesor.materia3 }} (Cursos: {{ profesor.cursos_m3 }})</span>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <div>
+                <a href="/admin/reporte_individual/{{ profesor.usuario }}" class="btn btn-success">📄 Descargar Reporte PDF Individual</a>
+                <a href="/admin/panel" class="btn">← Volver al Listado</a>
+            </div>
+        </div>
+        
+        <div class="card">
+            <h3>📝 Evaluaciones Realizadas</h3>
+            {% if profesor.evaluaciones %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>Curso</th>
+                        <th>Alumno</th>
+                        <th>Total Materias Marcadas</th>
+                        <th>Fecha</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for eval in profesor.evaluaciones %}
+                    <tr>
+                        <td>{{ eval.curso }}</td>
+                        <td>{{ eval.alumno }}</td>
+                        <td>{{ eval.total_materias }}</td>
+                        <td>{{ eval.fecha if eval.fecha else 'No registrada' }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p>No hay evaluaciones registradas para este profesor.</p>
+            {% endif %}
+        </div>
+    </div>
+</body>
+</html>
