@@ -772,100 +772,101 @@ def admin_panel():
         return redirect('/admin')
     
     try:
-        # Obtener configuración
-        config_data = config_sheet.get_all_records()
-        config = {
-            'activo': True,
-            'fecha_inicio': '',
-            'fecha_fin': ''
-        }
-        
-        for row in config_data:
-            clave = row.get('clave', '')
-            valor = row.get('valor', '')
-            if clave == 'activo':
-                config['activo'] = convertir_a_booleano(valor)
-            elif clave == 'fecha_inicio':
-                config['fecha_inicio'] = valor.replace(' ', 'T') if valor else ''
-            elif clave == 'fecha_fin':
-                config['fecha_fin'] = valor.replace(' ', 'T') if valor else ''
+        # Obtener configuración (usando get_all_values para evitar error de encabezados)
+        config = {'activo': True, 'fecha_inicio': '', 'fecha_fin': ''}
+        try:
+            valores_config = config_sheet.get_all_values()
+            if len(valores_config) > 1:
+                for fila in valores_config[1:]:
+                    if len(fila) >= 2:
+                        clave = fila[0].strip() if fila[0] else ''
+                        valor = fila[1].strip() if len(fila) > 1 and fila[1] else ''
+                        if clave == 'activo':
+                            config['activo'] = convertir_a_booleano(valor)
+                        elif clave == 'fecha_inicio':
+                            config['fecha_inicio'] = valor.replace(' ', 'T') if valor else ''
+                        elif clave == 'fecha_fin':
+                            config['fecha_fin'] = valor.replace(' ', 'T') if valor else ''
+        except Exception as e:
+            print(f"⚠️ Error leyendo CONFIG: {e}")
         
         # Obtener profesores
-        profesores_data = prof_sheet.get_all_records()
         profesores = []
+        try:
+            valores_prof = prof_sheet.get_all_values()
+            if len(valores_prof) > 1:
+                encabezados = valores_prof[0]
+                for fila in valores_prof[1:]:
+                    prof_dict = {}
+                    for i, header in enumerate(encabezados):
+                        if i < len(fila):
+                            prof_dict[header] = fila[i]
+                    
+                    usuario = prof_dict.get('usuario', '')
+                    if usuario:
+                        cursos_set = set()
+                        for i in range(1, 4):
+                            cursos_str = prof_dict.get(f'cursos_m{i}', '')
+                            if cursos_str:
+                                for c in str(cursos_str).split(','):
+                                    if c.strip():
+                                        cursos_set.add(c.strip())
+                        
+                        profesores.append({
+                            'usuario': usuario,
+                            'nombre_completo': prof_dict.get('nombre_completo', usuario),
+                            'cursos': sorted(list(cursos_set)),
+                            'descargas': 0,
+                            'ultima_descarga': '',
+                            'total_evaluaciones': 0
+                        })
+        except Exception as e:
+            print(f"⚠️ Error leyendo PROFESORES: {e}")
         
-        for prof in profesores_data:
-            usuario = prof.get('usuario', '')
-            if usuario:
-                cursos_set = set()
-                for i in range(1, 4):
-                    cursos_str = prof.get(f'cursos_m{i}', '')
-                    if cursos_str:
-                        for c in str(cursos_str).split(','):
-                            if c.strip():
-                                cursos_set.add(c.strip())
-                
-                # Obtener estadísticas del profesor
-                stats = {}
-                try:
-                    stats_data = stats_sheet.get_all_records()
-                    for stat in stats_data:
-                        if stat.get('profesor', '').upper() == usuario.upper():
-                            stats = stat
-                            break
-                except:
-                    pass
-                
-                profesores.append({
-                    'usuario': usuario,
-                    'nombre_completo': prof.get('nombre_completo', usuario),
-                    'cursos': sorted(list(cursos_set)),
-                    'descargas': stats.get('descargas_pdf', 0),
-                    'ultima_descarga': stats.get('ultima_descarga', ''),
-                    'total_evaluaciones': len(obtener_estados_desde_sheets(usuario))
-                })
+        # Obtener cursos
+        cursos_unicos = set()
+        try:
+            valores_est = est_sheet.get_all_values()
+            if len(valores_est) > 1:
+                for fila in valores_est[1:]:
+                    if len(fila) > 0 and fila[0]:
+                        cursos_unicos.add(str(fila[0]).strip())
+        except Exception as e:
+            print(f"⚠️ Error leyendo ESTUDIANTES: {e}")
         
-        # Obtener cursos y materias
-        materias_data = mat_sheet.get_all_records()
+        # Obtener materias
         todas_materias = {}
-        for m in materias_data:
-            try:
-                id_materia = int(float(m.get('id', 0)))
-                nombre_materia = str(m.get('nombre', '')).strip()
-                if id_materia > 0 and nombre_materia:
-                    todas_materias[id_materia] = nombre_materia
-            except:
-                pass
+        try:
+            valores_mat = mat_sheet.get_all_values()
+            if len(valores_mat) > 1:
+                for fila in valores_mat[1:]:
+                    if len(fila) >= 2 and fila[0] and fila[1]:
+                        try:
+                            id_mat = int(float(fila[0]))
+                            todas_materias[id_mat] = str(fila[1]).strip()
+                        except:
+                            pass
+        except Exception as e:
+            print(f"⚠️ Error leyendo MATERIAS: {e}")
         
         # Agrupar materias por curso
         cursos_materias = {}
-        estudiantes = est_sheet.get_all_records()
-        cursos_unicos = set()
-        
-        for est in estudiantes:
-            curso = str(est.get('curso', '')).strip()
-            if curso:
-                cursos_unicos.add(curso)
-        
         for curso in sorted(cursos_unicos):
             cursos_materias[curso] = []
             for id_mat, nombre_mat in todas_materias.items():
-                cursos_materias[curso].append({
-                    'id': id_mat,
-                    'nombre': nombre_mat
-                })
+                cursos_materias[curso].append({'id': id_mat, 'nombre': nombre_mat})
         
-        # Estadísticas generales
+        # Estadísticas
         total_profesores = len(profesores)
         total_cursos = len(cursos_unicos)
-        total_alumnos = len(estudiantes)
+        total_alumnos = 0
+        try:
+            valores_est = est_sheet.get_all_values()
+            total_alumnos = len(valores_est) - 1 if len(valores_est) > 1 else 0
+        except:
+            pass
         
-        respuestas = resp_sheet.get_all_records()
         total_evaluaciones = 0
-        for resp in respuestas:
-            for i in range(1, 21):
-                if convertir_a_booleano(resp.get(f'm{i}', False)):
-                    total_evaluaciones += 1
         
         return render_template('admin_panel.html',
                              config=config,
