@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Profesores - Administración</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f5f5;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+        }
+        
+        .nav {
+            background: white;
+            padding: 15px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            display: flex;
+            gap: 20px;
+        }
+        
+        .nav a {
+            color: #667eea;
+            text-decoration: none;
+            padding: 8px 16px;
+            border-radius: 5px;
+        }
+        
+        .nav a:hover {
+            background: #f0f0f0;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 30px auto;
+            padding: 0 20px;
+        }
+        
+        .profesor-card {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+            overflow: hidden;
+        }
+        
+        .profesor-header {
+            background: #f8f9fa;
+            padding: 15px 20px;
+            border-bottom: 2px solid #667eea;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .profesor-header:hover {
+            background: #e9ecef;
+        }
+        
+        .profesor-nombre {
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+        }
+        
+        .profesor-usuario {
+            color: #666;
+            font-size: 14px;
+        }
+        
+        .profesor-content {
+            padding: 20px;
+            display: none;
+        }
+        
+        .profesor-content.show {
+            display: block;
+        }
+        
+        .materia-item {
+            background: #f8f9fa;
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 5px;
+        }
+        
+        .materia-nombre {
+            font-weight: bold;
+            color: #667eea;
+        }
+        
+        .materia-cursos {
+            color: #666;
+            font-size: 14px;
+            margin-top: 5px;
+        }
+        
+        .btn-supervisar {
+            background: #667eea;
+            color: white;
+            padding: 8px 16px;
+            text-decoration: none;
+            border-radius: 5px;
+            display: inline-block;
+            margin-top: 10px;
+        }
+        
+        .toggle-icon {
+            font-size: 20px;
+            transition: transform 0.3s;
+        }
+        
+        .toggle-icon.rotated {
+            transform: rotate(180deg);
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>👨‍🏫 Gestión de Profesores</h1>
+        <p>Consulta las asignaciones de materias y cursos por profesor</p>
+    </div>
+    
+    <div class="nav">
+        <a href="/admin/dashboard">📊 Dashboard</a>
+        <a href="/admin/profesores">👨‍🏫 Profesores</a>
+        <a href="/admin/estadisticas">📈 Estadísticas</a>
+        <a href="/admin/exportar_datos">📥 Exportar Datos</a>
+        <a href="/admin/logout" style="margin-left: auto;">🚪 Cerrar Sesión</a>
+    </div>
+    
+    <div class="container">
+        {% for profesor in profesores %}
+        <div class="profesor-card">
+            <div class="profesor-header" onclick="toggleProfesor(this)">
+                <div>
+                    <div class="profesor-nombre">{{ profesor.nombre_completo or profesor.usuario }}</div>
+                    <div class="profesor-usuario">Usuario: {{ profesor.usuario }}</div>
+                </div>
+                <div class="toggle-icon">▼</div>
+            </div>
+            <div class="profesor-content">
+                <h3>Materias Asignadas:</h3>
+                {% for materia in profesor.materias %}
+                <div class="materia-item">
+                    <div class="materia-nombre">📚 {{ materia.materia }}</div>
+                    <div class="materia-cursos">Cursos: {{ materia.cursos }}</div>
+                </div>
+                {% else %}
+                <p>No tiene materias asignadas</p>
+                {% endfor %}
+                
+                <a href="/admin/supervisar/{{ profesor.usuario }}" class="btn-supervisar">
+                    🔍 Supervisar Evaluaciones
+                </a>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    
+    <script>
+        function toggleProfesor(header) {
+            const content = header.nextElementSibling;
+            const icon = header.querySelector('.toggle-icon');
+            
+            content.classList.toggle('show');
+            icon.classList.toggle('rotated');
+        }
+        
+        // Abrir el primer profesor por defecto
+        const firstProfesor = document.querySelector('.profesor-content');
+        if (firstProfesor) {
+            firstProfesor.classList.add('show');
+            const firstIcon = document.querySelector('.toggle-icon');
+            if (firstIcon) firstIcon.classList.add('rotated');
+        }
+    </script>
+</body>
+</html>
