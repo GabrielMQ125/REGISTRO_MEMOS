@@ -17,6 +17,12 @@ app = Flask(__name__)
 # Configuración de secret key
 app.secret_key = os.environ.get('SECRET_KEY', 'clave_secreta_para_desarrollo_123456')
 
+# Contraseña de administrador (por defecto: admin123)
+ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'admin123')
+if ADMIN_PASSWORD == 'admin123':
+    print("⚠️ ADVERTENCIA: Usando contraseña de administrador por defecto ('admin123')")
+    print("   Configura la variable de entorno ADMIN_PASSWORD para mayor seguridad")
+
 # Configuración Google Sheets
 scope = ["https://spreadsheets.google.com/feeds",
          "https://www.googleapis.com/auth/drive"]
@@ -395,7 +401,7 @@ def generar_reporte_pdf(profesor, cursos_data, todas_materias, materias_por_curs
     buffer.seek(0)
     return buffer
 
-# ==================== RUTAS ====================
+# ==================== RUTAS PRINCIPALES ====================
 
 @app.route('/', methods=['GET', 'POST'])
 def login():
@@ -662,7 +668,7 @@ def pdf():
             except:
                 pass
         
-        # 🔴 CLAVE: Obtener estados DIRECTAMENTE desde Google Sheets
+        # CLAVE: Obtener estados DIRECTAMENTE desde Google Sheets
         estados = obtener_estados_desde_sheets(profesor)
         print(f"📊 PDF: {len(estados)} estados cargados desde Sheets para {profesor}")
         
@@ -715,10 +721,10 @@ def diagnostico():
                     "curso": fila[1] if len(fila) > 1 else "",
                     "alumno": fila[2] if len(fila) > 2 else "",
                 }
-                for m in range(1, 16):
+                for m in range(1, 21):
                     col_idx = 3 + (m - 1)
                     registro[f"m{m}"] = fila[col_idx] if len(fila) > col_idx else ""
-                registro["fecha"] = fila[18] if len(fila) > 18 else ""
+                registro["fecha"] = fila[23] if len(fila) > 23 else ""
                 resultado["mis_registros"].append(registro)
         
         return jsonify(resultado)
@@ -746,6 +752,174 @@ def debug_estado():
 @app.route('/test_conexion')
 def test_conexion():
     return jsonify({"success": True, "mensaje": "Servidor activo"})
+
+# ==================== RUTAS DE ADMINISTRACIÓN ====================
+
+@app.route('/admin', methods=['GET', 'POST'])
+def admin_login():
+    if request.method == 'POST':
+        password = request.form.get('admin_password', '')
+        if password == ADMIN_PASSWORD:
+            session['admin'] = True
+            return redirect('/admin/panel')
+        return render_template('admin_login.html', error='Contraseña incorrecta')
+    
+    return render_template('admin_login.html')
+
+@app.route('/admin/panel')
+def admin_panel():
+    if not session.get('admin'):
+        return redirect('/admin')
+    
+    try:
+        # Obtener configuración
+        config_data = config_sheet.get_all_records()
+        config = {
+            'activo': True,
+            'fecha_inicio': '',
+            'fecha_fin': ''
+        }
+        
+        for row in config_data:
+            clave = row.get('clave', '')
+            valor = row.get('valor', '')
+            if clave == 'activo':
+                config['activo'] = convertir_a_booleano(valor)
+            elif clave == 'fecha_inicio':
+                config['fecha_inicio'] = valor.replace(' ', 'T') if valor else ''
+            elif clave == 'fecha_fin':
+                config['fecha_fin'] = valor.replace(' ', 'T') if valor else ''
+        
+        # Obtener profesores
+        profesores_data = prof_sheet.get_all_records()
+        profesores = []
+        
+        for prof in profesores_data:
+            usuario = prof.get('usuario', '')
+            if usuario:
+                cursos_set = set()
+                for i in range(1, 4):
+                    cursos_str = prof.get(f'cursos_m{i}', '')
+                    if cursos_str:
+                        for c in str(cursos_str).split(','):
+                            if c.strip():
+                                cursos_set.add(c.strip())
+                
+                # Obtener estadísticas del profesor
+                stats = {}
+                try:
+                    stats_data = stats_sheet.get_all_records()
+                    for stat in stats_data:
+                        if stat.get('profesor', '').upper() == usuario.upper():
+                            stats = stat
+                            break
+                except:
+                    pass
+                
+                profesores.append({
+                    'usuario': usuario,
+                    'nombre_completo': prof.get('nombre_completo', usuario),
+                    'cursos': sorted(list(cursos_set)),
+                    'descargas': stats.get('descargas_pdf', 0),
+                    'ultima_descarga': stats.get('ultima_descarga', ''),
+                    'total_evaluaciones': len(obtener_estados_desde_sheets(usuario))
+                })
+        
+        # Obtener cursos y materias
+        materias_data = mat_sheet.get_all_records()
+        todas_materias = {}
+        for m in materias_data:
+            try:
+                id_materia = int(float(m.get('id', 0)))
+                nombre_materia = str(m.get('nombre', '')).strip()
+                if id_materia > 0 and nombre_materia:
+                    todas_materias[id_materia] = nombre_materia
+            except:
+                pass
+        
+        # Agrupar materias por curso
+        cursos_materias = {}
+        estudiantes = est_sheet.get_all_records()
+        cursos_unicos = set()
+        
+        for est in estudiantes:
+            curso = str(est.get('curso', '')).strip()
+            if curso:
+                cursos_unicos.add(curso)
+        
+        for curso in sorted(cursos_unicos):
+            cursos_materias[curso] = []
+            for id_mat, nombre_mat in todas_materias.items():
+                cursos_materias[curso].append({
+                    'id': id_mat,
+                    'nombre': nombre_mat
+                })
+        
+        # Estadísticas generales
+        total_profesores = len(profesores)
+        total_cursos = len(cursos_unicos)
+        total_alumnos = len(estudiantes)
+        
+        respuestas = resp_sheet.get_all_records()
+        total_evaluaciones = 0
+        for resp in respuestas:
+            for i in range(1, 21):
+                if convertir_a_booleano(resp.get(f'm{i}', False)):
+                    total_evaluaciones += 1
+        
+        return render_template('admin_panel.html',
+                             config=config,
+                             profesores=profesores,
+                             cursos_materias=cursos_materias,
+                             total_profesores=total_profesores,
+                             total_cursos=total_cursos,
+                             total_alumnos=total_alumnos,
+                             total_evaluaciones=total_evaluaciones)
+    
+    except Exception as e:
+        print(f"❌ Error en panel admin: {e}")
+        print(traceback.format_exc())
+        return render_template('admin_panel.html', error=str(e))
+
+@app.route('/admin/config', methods=['POST'])
+def admin_config():
+    if not session.get('admin'):
+        return redirect('/admin')
+    
+    try:
+        activo = 'activo' in request.form
+        fecha_inicio = request.form.get('fecha_inicio', '').replace('T', ' ') + ':00' if request.form.get('fecha_inicio') else ''
+        fecha_fin = request.form.get('fecha_fin', '').replace('T', ' ') + ':00' if request.form.get('fecha_fin') else ''
+        
+        config_data = config_sheet.get_all_records()
+        
+        for idx, row in enumerate(config_data, start=2):
+            clave = row.get('clave', '')
+            if clave == 'activo':
+                config_sheet.update_cell(idx, 2, booleano_a_texto(activo))
+            elif clave == 'fecha_inicio' and fecha_inicio:
+                config_sheet.update_cell(idx, 2, fecha_inicio)
+            elif clave == 'fecha_fin' and fecha_fin:
+                config_sheet.update_cell(idx, 2, fecha_fin)
+        
+        return redirect('/admin/panel')
+    
+    except Exception as e:
+        print(f"❌ Error guardando config: {e}")
+        return render_template('admin_panel.html', error=str(e))
+
+@app.route('/admin/refresh')
+def admin_refresh():
+    if not session.get('admin'):
+        return redirect('/admin')
+    return redirect('/admin/panel')
+
+@app.route('/admin/logout')
+def admin_logout():
+    session.pop('admin', None)
+    return redirect('/admin')
+
+# ================================================================
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
