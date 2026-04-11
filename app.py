@@ -888,8 +888,14 @@ def admin_config():
     
     try:
         activo = 'activo' in request.form
-        fecha_inicio = request.form.get('fecha_inicio', '').replace('T', ' ') + ':00' if request.form.get('fecha_inicio') else ''
-        fecha_fin = request.form.get('fecha_fin', '').replace('T', ' ') + ':00' if request.form.get('fecha_fin') else ''
+        
+        fecha_inicio = request.form.get('fecha_inicio', '')
+        if fecha_inicio:
+            fecha_inicio = fecha_inicio.replace('T', ' ') + ':00'
+        
+        fecha_fin = request.form.get('fecha_fin', '')
+        if fecha_fin:
+            fecha_fin = fecha_fin.replace('T', ' ') + ':00'
         
         config_data = config_sheet.get_all_records()
         
