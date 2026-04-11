@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel de Administración</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f5f5;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .header h1 {
+            margin-bottom: 10px;
+        }
+        
+        .nav {
+            background: white;
+            padding: 15px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .nav a {
+            color: #667eea;
+            text-decoration: none;
+            padding: 8px 16px;
+            border-radius: 5px;
+            transition: background 0.2s;
+        }
+        
+        .nav a:hover {
+            background: #f0f0f0;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 30px auto;
+            padding: 0 20px;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        
+        .stat-number {
+            font-size: 36px;
+            font-weight: bold;
+            color: #667eea;
+            margin: 10px 0;
+        }
+        
+        .stat-label {
+            color: #666;
+            font-size: 14px;
+        }
+        
+        .config-section, .recent-section {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+        
+        h2 {
+            color: #333;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: #666;
+            font-weight: 500;
+        }
+        
+        input[type="datetime-local"], input[type="checkbox"] {
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        
+        button:hover {
+            transform: translateY(-1px);
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+        
+        th {
+            background: #f8f9fa;
+            color: #333;
+            font-weight: 600;
+        }
+        
+        .alert {
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            display: none;
+        }
+        
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .alert-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .btn-small {
+            background: #667eea;
+            padding: 5px 10px;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Panel de Administración</h1>
+        <p>Sistema de Evaluaciones - Control y Supervisión</p>
+    </div>
+    
+    <div class="nav">
+        <a href="/admin/dashboard">📊 Dashboard</a>
+        <a href="/admin/profesores">👨‍🏫 Profesores</a>
+        <a href="/admin/estadisticas">📈 Estadísticas</a>
+        <a href="/admin/exportar_datos">📥 Exportar Datos</a>
+        <a href="/admin/logout" style="margin-left: auto;">🚪 Cerrar Sesión</a>
+    </div>
+    
+    <div class="container">
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-number">{{ total_profesores }}</div>
+                <div class="stat-label">Profesores Registrados</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">{{ total_respuestas }}</div>
+                <div class="stat-label">Respuestas Registradas</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">{{ total_marcadas }}</div>
+                <div class="stat-label">Evaluaciones Marcadas</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">{{ stats|length }}</div>
+                <div class="stat-label">Descargas de PDF</div>
+            </div>
+        </div>
+        
+        <div class="config-section">
+            <h2>⚙️ Configuración del Sistema</h2>
+            <form id="configForm">
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" name="activo" {% if config.get('activo', 'TRUE') == 'TRUE' %}checked{% endif %}>
+                        Sistema Activo
+                    </label>
+                </div>
+                
+                <div class="form-group">
+                    <label>Fecha de Inicio</label>
+                    <input type="datetime-local" name="fecha_inicio" 
+                           value="{{ config.get('fecha_inicio', '2026-01-01T00:00') if config.get('fecha_inicio') else '' }}">
+                </div>
+                
+                <div class="form-group">
+                    <label>Fecha de Fin</label>
+                    <input type="datetime-local" name="fecha_fin" 
+                           value="{{ config.get('fecha_fin', '2026-12-31T23:59') if config.get('fecha_fin') else '' }}">
+                </div>
+                
+                <button type="submit">Guardar Configuración</button>
+            </form>
+            <div id="alert" class="alert"></div>
+        </div>
+        
+        <div class="recent-section">
+            <h2>📋 Actividad Reciente</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Profesor</th>
+                        <th>Descargas PDF</th>
+                        <th>Última Descarga</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for stat in stats[:10] %}
+                    <tr>
+                        <td>{{ stat.get('profesor', '') }}</td>
+                        <td>{{ stat.get('descargas_pdf', 0) }}</td>
+                        <td>{{ stat.get('ultima_descarga', '') }}</td>
+                        <td>
+                            <a href="/admin/supervisar/{{ stat.get('profesor', '') }}" class="btn-small" style="text-decoration: none; color: white; background: #667eea; padding: 5px 10px; border-radius: 3px;">Supervisar</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    <script>
+        document.getElementById('configForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const formData = new FormData(e.target);
+            
+            try {
+                const response = await fetch('/admin/configurar_fechas', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const result = await response.json();
+                
+                const alert = document.getElementById('alert');
+                if (result.success) {
+                    alert.className = 'alert alert-success';
+                    alert.textContent = result.mensaje;
+                    alert.style.display = 'block';
+                    setTimeout(() => {
+                        alert.style.display = 'none';
+                    }, 3000);
+                } else {
+                    alert.className = 'alert alert-error';
+                    alert.textContent = 'Error: ' + result.error;
+                    alert.style.display = 'block';
+                }
+            } catch (error) {
+                console.error('Error:', error);
+            }
+        });
+    </script>
+</body>
+</html>
