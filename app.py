@@ -17,12 +17,6 @@ app = Flask(__name__)
 # Configuración de secret key
 app.secret_key = os.environ.get('SECRET_KEY', 'clave_secreta_para_desarrollo_123456')
 
-# Contraseña de administrador (por defecto: admin123)
-ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'admin123')
-if ADMIN_PASSWORD == 'admin123':
-    print("⚠️ ADVERTENCIA: Usando contraseña de administrador por defecto ('admin123')")
-    print("   Configura la variable de entorno ADMIN_PASSWORD para mayor seguridad")
-
 # Configuración Google Sheets
 scope = ["https://spreadsheets.google.com/feeds",
          "https://www.googleapis.com/auth/drive"]
@@ -65,8 +59,8 @@ def obtener_estados_desde_sheets(profesor):
     except Exception as e:
         print(f"❌ Error obteniendo estados desde Sheets: {e}")
         return {}
-# ====================================================================
 
+# ==================== INICIALIZACIÓN GOOGLE SHEETS ====================
 try:
     if IN_PRODUCTION:
         creds_json = os.environ.get('GOOGLE_CREDENTIALS')
@@ -86,9 +80,9 @@ try:
     resp_sheet = spreadsheet.worksheet("RESPUESTAS")
     mat_sheet = spreadsheet.worksheet("MATERIAS")
     
+    # Crear hoja CONFIG si no existe
     try:
         config_sheet = spreadsheet.worksheet("CONFIG")
-        config_sheet.update('B2', 'TRUE')
     except:
         config_sheet = spreadsheet.add_worksheet("CONFIG", rows=10, cols=2)
         config_sheet.append_row(["clave", "valor"])
@@ -96,6 +90,7 @@ try:
         config_sheet.append_row(["fecha_inicio", "2026-01-01 00:00:00"])
         config_sheet.append_row(["fecha_fin", "2026-12-31 23:59:59"])
     
+    # Crear hoja ESTADISTICAS si no existe
     try:
         stats_sheet = spreadsheet.worksheet("ESTADISTICAS")
         headers = stats_sheet.row_values(1)
@@ -191,10 +186,10 @@ def incrementar_contador_descargas(profesor):
             descargas_actual = int(stats_sheet.cell(fila_encontrada, 2).value or 0)
             stats_sheet.update_cell(fila_encontrada, 2, descargas_actual + 1)
             stats_sheet.update_cell(fila_encontrada, 3, ahora)
-            return True
         else:
             stats_sheet.append_row([profesor.upper(), 1, ahora])
-            return True
+        
+        return True
         
     except Exception as e:
         print(f"❌ Error actualizando contador: {e}")
@@ -231,7 +226,6 @@ def obtener_materias_por_curso(profesor_dict, cursos_disponibles):
     return materias_por_curso
 
 def generar_reporte_pdf(profesor, cursos_data, todas_materias, materias_por_curso, estados_data, solo_marcadas=True, nombre_completo=""):
-    """Genera reporte PDF usando estados PASADOS como parámetro (desde Sheets)"""
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=letter,
                            rightMargin=30, leftMargin=30,
@@ -296,7 +290,6 @@ def generar_reporte_pdf(profesor, cursos_data, todas_materias, materias_por_curs
                 if solo_marcadas:
                     tiene_marcada = False
                     for alumno in alumnos:
-                        # Buscar en estados_data (que viene de Sheets)
                         key = f"{curso_nombre}_{alumno}_{materia_id}"
                         if estados_data.get(key, False):
                             tiene_marcada = True
@@ -401,7 +394,14 @@ def generar_reporte_pdf(profesor, cursos_data, todas_materias, materias_por_curs
     buffer.seek(0)
     return buffer
 
-# ==================== RUTAS PRINCIPALES ====================
+# ==================== FUNCIONES DE ADMINISTRADOR ====================
+
+def verificar_admin():
+    """Verifica si el usuario actual es administrador"""
+    admin_password = os.environ.get('ADMIN_PASSWORD', 'admin123')
+    return session.get('admin_logged_in', False) and session.get('admin_password') == admin_password
+
+# ==================== RUTAS DE PROFESOR ====================
 
 @app.route('/', methods=['GET', 'POST'])
 def login():
@@ -516,10 +516,8 @@ def panel():
             except Exception as e:
                 continue
         
-        # Cargar estados desde Sheets para el panel
         estados = obtener_estados_desde_sheets(usuario)
         
-        # Limpiar y actualizar sesión para el panel
         keys_to_remove = [key for key in session.keys() if key.startswith('estado_temp_')]
         for key in keys_to_remove:
             session.pop(key, None)
@@ -563,13 +561,11 @@ def guardar():
         
         valor_texto = booleano_a_texto(valor)
         
-        # Guardar en sesión
         key = f"{curso}_{alumno}_{materia}"
         session[f"estado_temp_{key}"] = valor
         
         print(f"💾 Guardando: {profesor} - {curso} - {alumno} - M{materia} = {valor_texto}")
         
-        # Buscar si ya existe registro usando normalización
         todas_filas = resp_sheet.get_all_values()
         
         num_fila = None
@@ -668,7 +664,6 @@ def pdf():
             except:
                 pass
         
-        # CLAVE: Obtener estados DIRECTAMENTE desde Google Sheets
         estados = obtener_estados_desde_sheets(profesor)
         print(f"📊 PDF: {len(estados)} estados cargados desde Sheets para {profesor}")
         
@@ -697,6 +692,329 @@ def logout():
         session.pop(key, None)
     
     session.clear()
+    return redirect('/')
+
+# ==================== RUTAS DE ADMINISTRADOR ====================
+
+@app.route('/admin/login', methods=['GET', 'POST'])
+def admin_login():
+    """Login para administradores"""
+    if request.method == 'POST':
+        password = request.form.get('password', '')
+        admin_password = os.environ.get('ADMIN_PASSWORD', 'admin123')
+        
+        if password == admin_password:
+            session['admin_logged_in'] = True
+            session['admin_password'] = password
+            return redirect('/admin/dashboard')
+        else:
+            return render_template('admin_login.html', error="Contraseña incorrecta")
+    
+    return render_template('admin_login.html')
+
+@app.route('/admin/dashboard')
+def admin_dashboard():
+    """Panel principal del administrador"""
+    if not verificar_admin():
+        return redirect('/admin/login')
+    
+    try:
+        config_data = config_sheet.get_all_records()
+        config = {}
+        for row in config_data:
+            config[row.get('clave', '')] = row.get('valor', '')
+        
+        stats = stats_sheet.get_all_records()
+        
+        profesores = prof_sheet.get_all_records()
+        
+        respuestas = resp_sheet.get_all_records()
+        total_respuestas = len(respuestas)
+        
+        total_marcadas = 0
+        for resp in respuestas:
+            for i in range(1, 21):
+                if convertir_a_booleano(resp.get(f'm{i}', False)):
+                    total_marcadas += 1
+        
+        return render_template('admin_dashboard.html',
+                             config=config,
+                             stats=stats,
+                             profesores=profesores,
+                             total_profesores=len(profesores),
+                             total_respuestas=total_respuestas,
+                             total_marcadas=total_marcadas)
+    
+    except Exception as e:
+        return f"Error: {e}"
+
+@app.route('/admin/configurar_fechas', methods=['POST'])
+def admin_configurar_fechas():
+    """Configurar fechas del sistema"""
+    if not verificar_admin():
+        return jsonify({"success": False, "error": "No autorizado"}), 401
+    
+    try:
+        activo = request.form.get('activo') == 'on'
+        fecha_inicio = request.form.get('fecha_inicio')
+        fecha_fin = request.form.get('fecha_fin')
+        
+        if fecha_inicio:
+            fecha_inicio = fecha_inicio.replace('T', ' ') + ':00'
+        if fecha_fin:
+            fecha_fin = fecha_fin.replace('T', ' ') + ':00'
+        
+        config_sheet.update('B2', 'TRUE' if activo else 'FALSE')
+        config_sheet.update('B3', fecha_inicio)
+        config_sheet.update('B4', fecha_fin)
+        
+        return jsonify({"success": True, "mensaje": "Configuración actualizada"})
+    
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route('/admin/profesores')
+def admin_profesores():
+    """Ver todos los profesores y sus asignaciones"""
+    if not verificar_admin():
+        return redirect('/admin/login')
+    
+    try:
+        profesores = prof_sheet.get_all_records()
+        materias = mat_sheet.get_all_records()
+        materias_dict = {}
+        for m in materias:
+            try:
+                id_materia = int(float(m.get('id', 0)))
+                if id_materia > 0:
+                    materias_dict[id_materia] = m.get('nombre', f'Materia {id_materia}')
+            except:
+                pass
+        
+        profesores_data = []
+        for prof in profesores:
+            profesor_info = {
+                'usuario': prof.get('profesor', ''),
+                'nombre_completo': prof.get('nombre_completo', ''),
+                'materias': []
+            }
+            
+            for i in range(1, 4):
+                materia_id = prof.get(f'm{i}')
+                cursos = prof.get(f'cursos_m{i}', '')
+                if materia_id and str(materia_id).strip():
+                    try:
+                        materia_id_int = int(float(materia_id))
+                        if materia_id_int in materias_dict:
+                            profesor_info['materias'].append({
+                                'materia': materias_dict[materia_id_int],
+                                'cursos': cursos
+                            })
+                    except:
+                        pass
+            
+            profesores_data.append(profesor_info)
+        
+        return render_template('admin_profesores.html',
+                             profesores=profesores_data)
+    
+    except Exception as e:
+        return f"Error: {e}"
+
+@app.route('/admin/supervisar/<profesor>')
+def admin_supervisar(profesor):
+    """Supervisar las evaluaciones de un profesor específico"""
+    if not verificar_admin():
+        return redirect('/admin/login')
+    
+    try:
+        todas_filas = prof_sheet.get_all_values()
+        profesor_info = None
+        encabezados = todas_filas[0] if todas_filas else []
+        
+        for fila in todas_filas[1:]:
+            if len(fila) > 0 and fila[0].upper() == profesor.upper():
+                profesor_info = {}
+                for idx, header in enumerate(encabezados):
+                    if idx < len(fila):
+                        profesor_info[header] = fila[idx]
+                    else:
+                        profesor_info[header] = ''
+                break
+        
+        if not profesor_info:
+            return "Profesor no encontrado"
+        
+        cursos_profesor = []
+        for i in range(1, 4):
+            cursos_str = profesor_info.get(f'cursos_m{i}', '')
+            if cursos_str:
+                for c in str(cursos_str).split(','):
+                    curso_limpio = c.strip()
+                    if curso_limpio and curso_limpio not in cursos_profesor:
+                        cursos_profesor.append(curso_limpio)
+        
+        estudiantes = est_sheet.get_all_records()
+        cursos = {}
+        for est in estudiantes:
+            curso = str(est.get('curso', '')).strip()
+            nombre = str(est.get('nombre', '')).strip()
+            if curso and nombre and curso in cursos_profesor:
+                if curso not in cursos:
+                    cursos[curso] = []
+                if nombre not in cursos[curso]:
+                    cursos[curso].append(nombre)
+        
+        materias_data = mat_sheet.get_all_records()
+        todas_materias = {}
+        for m in materias_data:
+            try:
+                id_materia = int(float(m.get('id', 0)))
+                nombre_materia = str(m.get('nombre', '')).strip()
+                if id_materia > 0 and nombre_materia:
+                    todas_materias[id_materia] = nombre_materia
+            except:
+                pass
+        
+        profesor_dict = profesor_info
+        materias_por_curso = {}
+        for curso in cursos_profesor:
+            materias_por_curso[curso] = []
+        
+        for i in range(1, 4):
+            materia_id = profesor_dict.get(f'm{i}')
+            cursos_str = profesor_dict.get(f'cursos_m{i}', '')
+            
+            if materia_id and str(materia_id).strip():
+                try:
+                    materia_id_int = int(float(materia_id))
+                    if cursos_str:
+                        for c in str(cursos_str).split(','):
+                            curso_limpio = c.strip()
+                            if curso_limpio in materias_por_curso:
+                                if materia_id_int not in materias_por_curso[curso_limpio]:
+                                    materias_por_curso[curso_limpio].append(materia_id_int)
+                except:
+                    pass
+        
+        estados = obtener_estados_desde_sheets(profesor)
+        
+        total_posibles = 0
+        total_marcadas = 0
+        
+        for curso_nombre, alumnos in cursos.items():
+            for alumno in alumnos:
+                for materia_id in materias_por_curso.get(curso_nombre, []):
+                    total_posibles += 1
+                    key = f"{curso_nombre}_{alumno}_{materia_id}"
+                    if estados.get(key, False):
+                        total_marcadas += 1
+        
+        porcentaje = (total_marcadas / total_posibles * 100) if total_posibles > 0 else 0
+        
+        return render_template('admin_supervisar.html',
+                             profesor=profesor,
+                             profesor_info=profesor_info,
+                             cursos=cursos,
+                             todas_materias=todas_materias,
+                             materias_por_curso=materias_por_curso,
+                             estados=estados,
+                             total_posibles=total_posibles,
+                             total_marcadas=total_marcadas,
+                             porcentaje=porcentaje)
+    
+    except Exception as e:
+        return f"Error: {e}"
+
+@app.route('/admin/estadisticas')
+def admin_estadisticas():
+    """Estadísticas detalladas del sistema"""
+    if not verificar_admin():
+        return redirect('/admin/login')
+    
+    try:
+        stats = stats_sheet.get_all_records()
+        
+        profesores = prof_sheet.get_all_records()
+        
+        evaluaciones_por_profesor = {}
+        respuestas = resp_sheet.get_all_records()
+        
+        for resp in respuestas:
+            profesor = resp.get('profesor', '')
+            if profesor:
+                if profesor not in evaluaciones_por_profesor:
+                    evaluaciones_por_profesor[profesor] = {'marcadas': 0, 'totales': 0}
+                
+                for i in range(1, 21):
+                    evaluaciones_por_profesor[profesor]['totales'] += 1
+                    if convertir_a_booleano(resp.get(f'm{i}', False)):
+                        evaluaciones_por_profesor[profesor]['marcadas'] += 1
+        
+        profesores_nombres = []
+        porcentajes = []
+        descargas = []
+        
+        for prof in profesores:
+            nombre = prof.get('profesor', '')
+            if nombre:
+                profesores_nombres.append(nombre)
+                evaluaciones = evaluaciones_por_profesor.get(nombre, {'marcadas': 0, 'totales': 0})
+                porcentaje = (evaluaciones['marcadas'] / evaluaciones['totales'] * 100) if evaluaciones['totales'] > 0 else 0
+                porcentajes.append(porcentaje)
+                
+                descarga = 0
+                for stat in stats:
+                    if stat.get('profesor', '').upper() == nombre.upper():
+                        descarga = int(stat.get('descargas_pdf', 0))
+                        break
+                descargas.append(descarga)
+        
+        return render_template('admin_estadisticas.html',
+                             stats=stats,
+                             profesores_nombres=profesores_nombres,
+                             porcentajes=porcentajes,
+                             descargas=descargas,
+                             total_descargas=sum(descargas))
+    
+    except Exception as e:
+        return f"Error: {e}"
+
+@app.route('/admin/exportar_datos')
+def admin_exportar_datos():
+    """Exportar todos los datos a CSV"""
+    if not verificar_admin():
+        return redirect('/admin/login')
+    
+    try:
+        import csv
+        
+        output = io.StringIO()
+        
+        respuestas = resp_sheet.get_all_records()
+        
+        if respuestas:
+            writer = csv.DictWriter(output, fieldnames=respuestas[0].keys())
+            writer.writeheader()
+            writer.writerows(respuestas)
+        
+        output.seek(0)
+        
+        return send_file(
+            io.BytesIO(output.getvalue().encode('utf-8-sig')),
+            as_attachment=True,
+            download_name=f"exportacion_respuestas_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+            mimetype='text/csv'
+        )
+    
+    except Exception as e:
+        return f"Error: {e}"
+
+@app.route('/admin/logout')
+def admin_logout():
+    """Cerrar sesión de administrador"""
+    session.pop('admin_logged_in', None)
+    session.pop('admin_password', None)
     return redirect('/')
 
 @app.route('/diagnostico')
@@ -752,311 +1070,6 @@ def debug_estado():
 @app.route('/test_conexion')
 def test_conexion():
     return jsonify({"success": True, "mensaje": "Servidor activo"})
-
-# ==================== RUTAS DE ADMINISTRACIÓN ====================
-
-@app.route('/admin', methods=['GET', 'POST'])
-def admin_login():
-    if request.method == 'POST':
-        password = request.form.get('admin_password', '')
-        if password == ADMIN_PASSWORD:
-            session['admin'] = True
-            return redirect('/admin/panel')
-        return render_template('admin_login.html', error='Contraseña incorrecta')
-    
-    return render_template('admin_login.html')
-
-@app.route('/admin/panel')
-def admin_panel():
-    if not session.get('admin'):
-        return redirect('/admin')
-    
-    try:
-        # ========== 1. LECTURA ÚNICA DE CADA HOJA ==========
-        
-        # Leer CONFIG
-        config = {'activo': True, 'fecha_inicio': '', 'fecha_fin': ''}
-        try:
-            valores_config = config_sheet.get_all_values()
-            if len(valores_config) > 1:
-                for fila in valores_config[1:]:
-                    if len(fila) >= 2:
-                        clave = str(fila[0]).strip() if fila[0] else ''
-                        valor = str(fila[1]).strip() if len(fila) > 1 and fila[1] else ''
-                        if clave == 'activo':
-                            config['activo'] = convertir_a_booleano(valor)
-                        elif clave == 'fecha_inicio':
-                            config['fecha_inicio'] = valor.replace(' ', 'T') if valor else ''
-                        elif clave == 'fecha_fin':
-                            config['fecha_fin'] = valor.replace(' ', 'T') if valor else ''
-        except Exception as e:
-            print(f"⚠️ Error leyendo CONFIG: {e}")
-        
-        # Leer ESTUDIANTES
-        estudiantes_lista = []
-        alumnos_por_curso = {}
-        cursos_unicos = set()
-        try:
-            valores_est = est_sheet.get_all_values()
-            if len(valores_est) > 1:
-                for fila in valores_est[1:]:
-                    if len(fila) >= 2:
-                        curso = str(fila[0]).strip() if fila[0] else ''
-                        nombre = str(fila[1]).strip() if len(fila) > 1 and fila[1] else ''
-                        if curso and nombre:
-                            estudiantes_lista.append({'curso': curso, 'nombre': nombre})
-                            cursos_unicos.add(curso)
-                            if curso not in alumnos_por_curso:
-                                alumnos_por_curso[curso] = []
-                            if nombre not in alumnos_por_curso[curso]:
-                                alumnos_por_curso[curso].append(nombre)
-        except Exception as e:
-            print(f"⚠️ Error leyendo ESTUDIANTES: {e}")
-        
-        # Leer MATERIAS
-        todas_materias = {}
-        try:
-            valores_mat = mat_sheet.get_all_values()
-            if len(valores_mat) > 1:
-                for fila in valores_mat[1:]:
-                    if len(fila) >= 2 and fila[0] and fila[1]:
-                        try:
-                            id_mat = int(float(fila[0]))
-                            todas_materias[id_mat] = str(fila[1]).strip()
-                        except:
-                            pass
-        except Exception as e:
-            print(f"⚠️ Error leyendo MATERIAS: {e}")
-        
-        # Leer PROFESORES
-        profesores_data = []
-        try:
-            valores_prof = prof_sheet.get_all_values()
-            if len(valores_prof) > 1:
-                encabezados = [str(h).strip() if h else '' for h in valores_prof[0]]
-                for fila in valores_prof[1:]:
-                    prof_dict = {}
-                    for i, header in enumerate(encabezados):
-                        if header and i < len(fila):
-                            prof_dict[header] = str(fila[i]).strip() if fila[i] else ''
-                    usuario = prof_dict.get('usuario', '')
-                    if usuario:
-                        profesores_data.append(prof_dict)
-        except Exception as e:
-            print(f"⚠️ Error leyendo PROFESORES: {e}")
-        
-        # Leer RESPUESTAS
-        todas_respuestas = []
-        try:
-            valores_resp = resp_sheet.get_all_values()
-            if len(valores_resp) > 1:
-                encabezados_resp = [str(h).strip() if h else '' for h in valores_resp[0]]
-                for fila in valores_resp[1:]:
-                    resp_dict = {}
-                    for i, header in enumerate(encabezados_resp):
-                        if header and i < len(fila):
-                            resp_dict[header] = str(fila[i]).strip() if fila[i] else ''
-                    if resp_dict.get('profesor', ''):
-                        todas_respuestas.append(resp_dict)
-        except Exception as e:
-            print(f"⚠️ Error leyendo RESPUESTAS: {e}")
-        
-        # Leer ESTADISTICAS
-        stats_por_profesor = {}
-        try:
-            valores_stats = stats_sheet.get_all_values()
-            if len(valores_stats) > 1:
-                for fila in valores_stats[1:]:
-                    if len(fila) >= 3:
-                        prof = str(fila[0]).strip().upper() if fila[0] else ''
-                        if prof:
-                            stats_por_profesor[prof] = {
-                                'descargas': str(fila[1]).strip() if len(fila) > 1 and fila[1] else '0',
-                                'ultima': str(fila[2]).strip() if len(fila) > 2 and fila[2] else ''
-                            }
-        except Exception as e:
-            print(f"⚠️ Error leyendo ESTADISTICAS: {e}")
-        
-        # ========== 2. PROCESAR EN MEMORIA ==========
-        
-        # Pre-procesar respuestas por profesor
-        respuestas_por_profesor = {}
-        total_evaluaciones = 0
-        
-        for resp in todas_respuestas:
-            profesor_resp = resp.get('profesor', '')
-            if profesor_resp:
-                profesor_norm = normalizar_texto(profesor_resp)
-                if profesor_norm not in respuestas_por_profesor:
-                    respuestas_por_profesor[profesor_norm] = {}
-                
-                curso = resp.get('curso', '')
-                alumno = resp.get('alumno', '')
-                
-                if curso and alumno:
-                    for i in range(1, 21):
-                        columna = f"m{i}"
-                        valor = resp.get(columna, '')
-                        if convertir_a_booleano(valor):
-                            key = f"{curso}_{alumno}_{i}"
-                            respuestas_por_profesor[profesor_norm][key] = True
-                            total_evaluaciones += 1
-        
-        # Procesar cada profesor
-        profesores = []
-        for prof_dict in profesores_data:
-            usuario = prof_dict.get('usuario', '')
-            if usuario:
-                # Cursos y materias del profesor
-                cursos_set = set()
-                materias_por_curso_prof = {}
-                
-                for i in range(1, 4):
-                    cursos_str = prof_dict.get(f'cursos_m{i}', '')
-                    materia_id_str = prof_dict.get(f'm{i}', '')
-                    
-                    if cursos_str:
-                        for c in cursos_str.split(','):
-                            curso_limpio = c.strip()
-                            if curso_limpio:
-                                cursos_set.add(curso_limpio)
-                                if materia_id_str and materia_id_str.strip():
-                                    if curso_limpio not in materias_por_curso_prof:
-                                        materias_por_curso_prof[curso_limpio] = []
-                                    try:
-                                        id_mat = int(float(materia_id_str))
-                                        if id_mat > 0 and id_mat <= 20:
-                                            if id_mat not in materias_por_curso_prof[curso_limpio]:
-                                                materias_por_curso_prof[curso_limpio].append(id_mat)
-                                    except:
-                                        pass
-                
-                cursos_lista = sorted(list(cursos_set))
-                
-                # Estados de este profesor
-                usuario_norm = normalizar_texto(usuario)
-                estados_prof = respuestas_por_profesor.get(usuario_norm, {})
-                
-                # Calcular por curso
-                cursos_detalle = []
-                total_evaluaciones_prof = 0
-                total_posibles_prof = 0
-                
-                for curso in cursos_lista:
-                    alumnos_curso = alumnos_por_curso.get(curso, [])
-                    materias_curso = materias_por_curso_prof.get(curso, [])
-                    
-                    evaluadas = 0
-                    posibles = len(alumnos_curso) * len(materias_curso)
-                    
-                    for alumno in alumnos_curso:
-                        for materia in materias_curso:
-                            key = f"{curso}_{alumno}_{materia}"
-                            if estados_prof.get(key, False):
-                                evaluadas += 1
-                    
-                    total_evaluaciones_prof += evaluadas
-                    total_posibles_prof += posibles
-                    
-                    porcentaje = (evaluadas / posibles * 100) if posibles > 0 else 0
-                    
-                    cursos_detalle.append({
-                        'nombre': curso,
-                        'alumnos': len(alumnos_curso),
-                        'materias': len(materias_curso),
-                        'evaluadas': evaluadas,
-                        'posibles': posibles,
-                        'porcentaje': round(porcentaje, 1)
-                    })
-                
-                # Stats de descargas
-                stats = stats_por_profesor.get(usuario.upper(), {})
-                descargas = 0
-                try:
-                    descargas = int(stats.get('descargas', '0'))
-                except:
-                    pass
-                
-                porcentaje_general = (total_evaluaciones_prof / total_posibles_prof * 100) if total_posibles_prof > 0 else 0
-                
-                profesores.append({
-                    'usuario': usuario,
-                    'nombre_completo': prof_dict.get('nombre_completo', usuario),
-                    'cursos': cursos_lista,
-                    'cursos_detalle': cursos_detalle,
-                    'descargas': descargas,
-                    'ultima_descarga': stats.get('ultima', ''),
-                    'total_evaluaciones': total_evaluaciones_prof,
-                    'total_posibles': total_posibles_prof,
-                    'porcentaje_general': round(porcentaje_general, 1)
-                })
-        
-        # Agrupar materias por curso
-        cursos_materias = {}
-        for curso in sorted(cursos_unicos):
-            cursos_materias[curso] = []
-            for id_mat, nombre_mat in sorted(todas_materias.items()):
-                cursos_materias[curso].append({'id': id_mat, 'nombre': nombre_mat})
-        
-        return render_template('admin_panel.html',
-                             config=config,
-                             profesores=profesores,
-                             cursos_materias=cursos_materias,
-                             total_profesores=len(profesores),
-                             total_cursos=len(cursos_unicos),
-                             total_alumnos=len(estudiantes_lista),
-                             total_evaluaciones=total_evaluaciones)
-    
-    except Exception as e:
-        print(f"❌ Error en panel admin: {e}")
-        print(traceback.format_exc())
-        return render_template('admin_panel.html', error=str(e))
-
-@app.route('/admin/config', methods=['POST'])
-def admin_config():
-    if not session.get('admin'):
-        return redirect('/admin')
-    
-    try:
-        activo = 'activo' in request.form
-        
-        fecha_inicio = request.form.get('fecha_inicio', '')
-        if fecha_inicio:
-            fecha_inicio = fecha_inicio.replace('T', ' ') + ':00'
-        
-        fecha_fin = request.form.get('fecha_fin', '')
-        if fecha_fin:
-            fecha_fin = fecha_fin.replace('T', ' ') + ':00'
-        
-        config_data = config_sheet.get_all_records()
-        
-        for idx, row in enumerate(config_data, start=2):
-            clave = row.get('clave', '')
-            if clave == 'activo':
-                config_sheet.update_cell(idx, 2, booleano_a_texto(activo))
-            elif clave == 'fecha_inicio' and fecha_inicio:
-                config_sheet.update_cell(idx, 2, fecha_inicio)
-            elif clave == 'fecha_fin' and fecha_fin:
-                config_sheet.update_cell(idx, 2, fecha_fin)
-        
-        return redirect('/admin/panel')
-    
-    except Exception as e:
-        print(f"❌ Error guardando config: {e}")
-        return render_template('admin_panel.html', error=str(e))
-
-@app.route('/admin/refresh')
-def admin_refresh():
-    if not session.get('admin'):
-        return redirect('/admin')
-    return redirect('/admin/panel')
-
-@app.route('/admin/logout')
-def admin_logout():
-    session.pop('admin', None)
-    return redirect('/admin')
-
-# ================================================================
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
