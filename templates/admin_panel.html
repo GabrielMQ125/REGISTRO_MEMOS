@@ -3,10 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Panel Admin</title>
+    <title>Panel de Administración</title>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Segoe UI', sans-serif; background: #f7fafc; }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f7fafc;
+        }
+        
         .header {
             background: linear-gradient(135deg, #2d3748 0%, #1a202c 100%);
             color: white;
@@ -14,148 +23,453 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         }
+        
+        .header h1 {
+            font-size: 24px;
+        }
+        
+        .header-actions {
+            display: flex;
+            gap: 15px;
+        }
+        
         .btn {
             padding: 10px 20px;
+            border: none;
             border-radius: 8px;
-            text-decoration: none;
+            font-size: 14px;
             font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-decoration: none;
+            display: inline-block;
         }
-        .btn-primary { background: white; color: #2d3748; }
-        .btn-danger { background: #e53e3e; color: white; }
-        .container { max-width: 1400px; margin: 30px auto; padding: 0 20px; }
-        .tabs { display: flex; gap: 10px; margin-bottom: 30px; border-bottom: 2px solid #e2e8f0; }
+        
+        .btn-primary {
+            background: white;
+            color: #2d3748;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+        
+        .btn-danger {
+            background: #e53e3e;
+            color: white;
+        }
+        
+        .btn-danger:hover {
+            background: #c53030;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 30px auto;
+            padding: 0 20px;
+        }
+        
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #e2e8f0;
+        }
+        
         .tab {
             padding: 15px 30px;
             background: none;
             border: none;
+            font-size: 16px;
             font-weight: bold;
             color: #718096;
             cursor: pointer;
+            transition: all 0.3s;
+            border-bottom: 3px solid transparent;
         }
-        .tab.active { color: #2d3748; border-bottom: 3px solid #e53e3e; }
-        .tab-content { display: none; }
-        .tab-content.active { display: block; }
+        
+        .tab:hover {
+            color: #2d3748;
+        }
+        
+        .tab.active {
+            color: #2d3748;
+            border-bottom-color: #e53e3e;
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
         .config-section {
             background: white;
             padding: 30px;
             border-radius: 15px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
             margin-bottom: 30px;
         }
+        
+        .config-section h3 {
+            color: #2d3748;
+            margin-bottom: 20px;
+            font-size: 20px;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #4a5568;
+            font-weight: 500;
+        }
+        
+        .form-group input[type="text"],
+        .form-group input[type="datetime-local"] {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+        
+        .form-group input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            margin-right: 10px;
+        }
+        
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+        }
+        
         .profesores-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
             gap: 20px;
+            margin-top: 20px;
         }
+        
         .profesor-card {
             background: white;
             padding: 20px;
             border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            transition: all 0.3s;
         }
+        
+        .profesor-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+        }
+        
+        .profesor-card h4 {
+            color: #2d3748;
+            margin-bottom: 10px;
+            font-size: 18px;
+        }
+        
+        .profesor-card .usuario {
+            color: #e53e3e;
+            font-size: 14px;
+            margin-bottom: 15px;
+        }
+        
+        .cursos-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            margin-bottom: 15px;
+        }
+        
+        .curso-badge {
+            background: #edf2f7;
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-size: 12px;
+            color: #4a5568;
+        }
+        
+        .stats {
+            display: flex;
+            justify-content: space-between;
+            padding-top: 15px;
+            border-top: 1px solid #e2e8f0;
+            font-size: 13px;
+            color: #718096;
+        }
+        
+        .cursos-generales {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+        
+        .curso-section {
+            margin-bottom: 40px;
+        }
+        
+        .curso-section h3 {
+            color: #2d3748;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #e53e3e;
+        }
+        
+        .materias-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 15px;
+        }
+        
+        .materia-item {
+            background: #f7fafc;
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+            border-left: 4px solid #e53e3e;
+        }
+        
+        .materia-id {
+            font-size: 12px;
+            color: #a0aec0;
+            margin-bottom: 5px;
+        }
+        
+        .materia-nombre {
+            font-weight: 500;
+            color: #2d3748;
+        }
+        
         .estadisticas-grid {
             display: grid;
-            grid-template-columns: repeat(4, 1fr);
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
             gap: 20px;
             margin-bottom: 30px;
         }
+        
         .stat-card {
             background: white;
             padding: 25px;
             border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
             text-align: center;
         }
-        .stat-number { font-size: 36px; font-weight: bold; color: #e53e3e; }
-        table { width: 100%; border-collapse: collapse; background: white; border-radius: 10px; }
-        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #e2e8f0; }
-        th { background: #2d3748; color: white; }
-        .alert { padding: 15px; border-radius: 8px; margin-bottom: 20px; }
-        .alert-success { background: #c6f6d5; color: #22543d; }
-        .alert-error { background: #fed7d7; color: #742a2a; }
+        
+        .stat-number {
+            font-size: 36px;
+            font-weight: bold;
+            color: #e53e3e;
+            margin-bottom: 10px;
+        }
+        
+        .stat-label {
+            color: #718096;
+            font-size: 14px;
+        }
+        
+        .alert {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        
+        .alert-success {
+            background: #c6f6d5;
+            color: #22543d;
+            border: 1px solid #9ae6b4;
+        }
+        
+        .alert-error {
+            background: #fed7d7;
+            color: #742a2a;
+            border: 1px solid #fc8181;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+        
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        
+        th {
+            background: #2d3748;
+            color: white;
+            font-weight: 500;
+        }
+        
+        tr:hover {
+            background: #f7fafc;
+        }
     </style>
 </head>
 <body>
     <div class="header">
         <h1>🎓 Panel de Administración</h1>
-        <div>
+        <div class="header-actions">
             <a href="/admin/refresh" class="btn btn-primary">🔄 Actualizar</a>
-            <a href="/admin/logout" class="btn btn-danger">🚪 Salir</a>
+            <a href="/admin/logout" class="btn btn-danger">🚪 Cerrar Sesión</a>
         </div>
     </div>
     
     <div class="container">
-        {% if mensaje %}<div class="alert alert-success">{{ mensaje }}</div>{% endif %}
-        {% if error %}<div class="alert alert-error">{{ error }}</div>{% endif %}
+        {% if mensaje %}
+        <div class="alert alert-success">{{ mensaje }}</div>
+        {% endif %}
+        
+        {% if error %}
+        <div class="alert alert-error">{{ error }}</div>
+        {% endif %}
         
         <div class="tabs">
             <button class="tab active" onclick="showTab('configuracion')">⚙️ Configuración</button>
             <button class="tab" onclick="showTab('profesores')">👥 Profesores</button>
-            <button class="tab" onclick="showTab('cursos')">📚 Cursos</button>
+            <button class="tab" onclick="showTab('cursos')">📚 Cursos y Materias</button>
             <button class="tab" onclick="showTab('estadisticas')">📊 Estadísticas</button>
         </div>
         
+        <!-- Tab Configuración -->
         <div id="configuracion" class="tab-content active">
             <div class="config-section">
-                <h3>Configuración</h3>
+                <h3>Configuración del Sistema</h3>
                 <form method="POST" action="/admin/config">
-                    <p><input type="checkbox" name="activo" {% if config.activo %}checked{% endif %}> Sistema Activo</p>
-                    <p>Inicio: <input type="datetime-local" name="fecha_inicio" value="{{ config.fecha_inicio }}"></p>
-                    <p>Fin: <input type="datetime-local" name="fecha_fin" value="{{ config.fecha_fin }}"></p>
-                    <button type="submit" class="btn btn-primary">Guardar</button>
+                    <div class="form-group checkbox-label">
+                        <input type="checkbox" name="activo" id="activo" {% if config.activo %}checked{% endif %}>
+                        <label for="activo">Sistema Activo</label>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Fecha de Inicio</label>
+                        <input type="datetime-local" name="fecha_inicio" value="{{ config.fecha_inicio }}">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Fecha de Fin</label>
+                        <input type="datetime-local" name="fecha_fin" value="{{ config.fecha_fin }}">
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary">💾 Guardar Configuración</button>
                 </form>
             </div>
         </div>
         
+        <!-- Tab Profesores -->
         <div id="profesores" class="tab-content">
             <div class="profesores-grid">
                 {% for prof in profesores %}
                 <div class="profesor-card">
                     <h4>{{ prof.nombre_completo }}</h4>
-                    <p>@{{ prof.usuario }}</p>
-                    <p>Cursos: {{ prof.cursos|join(', ') }}</p>
-                    <p>📊 {{ prof.total_evaluaciones }} eval | 📥 {{ prof.descargas }} PDFs</p>
+                    <div class="usuario">@{{ prof.usuario }}</div>
+                    <div class="cursos-list">
+                        {% for curso in prof.cursos %}
+                        <span class="curso-badge">{{ curso }}</span>
+                        {% endfor %}
+                    </div>
+                    <div class="stats">
+                        <span>📊 {{ prof.total_evaluaciones }} eval.</span>
+                        <span>📥 {{ prof.descargas }} PDFs</span>
+                    </div>
                 </div>
                 {% endfor %}
             </div>
         </div>
         
+        <!-- Tab Cursos -->
         <div id="cursos" class="tab-content">
-            {% for curso, materias in cursos_materias.items() %}
-            <div class="config-section">
-                <h3>{{ curso }}</h3>
-                <p>Materias: 
-                {% for m in materias %}
-                    {{ m.nombre }}{% if not loop.last %}, {% endif %}
+            <div class="cursos-generales">
+                {% for curso, materias in cursos_materias.items() %}
+                <div class="curso-section">
+                    <h3>📖 {{ curso }}</h3>
+                    <div class="materias-grid">
+                        {% for materia in materias %}
+                        <div class="materia-item">
+                            <div class="materia-id">ID: {{ materia.id }}</div>
+                            <div class="materia-nombre">{{ materia.nombre }}</div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
                 {% endfor %}
-                </p>
             </div>
-            {% endfor %}
         </div>
         
+        <!-- Tab Estadísticas -->
         <div id="estadisticas" class="tab-content">
             <div class="estadisticas-grid">
-                <div class="stat-card"><div class="stat-number">{{ total_profesores }}</div>Profesores</div>
-                <div class="stat-card"><div class="stat-number">{{ total_cursos }}</div>Cursos</div>
-                <div class="stat-card"><div class="stat-number">{{ total_alumnos }}</div>Alumnos</div>
-                <div class="stat-card"><div class="stat-number">{{ total_evaluaciones }}</div>Evaluaciones</div>
+                <div class="stat-card">
+                    <div class="stat-number">{{ total_profesores }}</div>
+                    <div class="stat-label">Profesores Registrados</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">{{ total_cursos }}</div>
+                    <div class="stat-label">Cursos Totales</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">{{ total_alumnos }}</div>
+                    <div class="stat-label">Alumnos Registrados</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">{{ total_evaluaciones }}</div>
+                    <div class="stat-label">Evaluaciones Totales</div>
+                </div>
             </div>
-            <table>
-                <tr><th>Profesor</th><th>Evaluaciones</th><th>Descargas</th><th>Última</th></tr>
-                {% for prof in profesores %}
-                <tr>
-                    <td>{{ prof.nombre_completo }}</td>
-                    <td>{{ prof.total_evaluaciones }}</td>
-                    <td>{{ prof.descargas }}</td>
-                    <td>{{ prof.ultima_descarga or 'Nunca' }}</td>
-                </tr>
-                {% endfor %}
-            </table>
+            
+            <div class="config-section">
+                <h3>Actividad por Profesor</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Profesor</th>
+                            <th>Evaluaciones</th>
+                            <th>Descargas PDF</th>
+                            <th>Última Actividad</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for prof in profesores %}
+                        <tr>
+                            <td>{{ prof.nombre_completo }}</td>
+                            <td>{{ prof.total_evaluaciones }}</td>
+                            <td>{{ prof.descargas }}</td>
+                            <td>{{ prof.ultima_descarga or 'Nunca' }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
     
     <script>
         function showTab(tabId) {
-            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
             document.getElementById(tabId).classList.add('active');
             event.target.classList.add('active');
         }
