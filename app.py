@@ -290,7 +290,6 @@ def generar_reporte_pdf(profesor, cursos_data, todas_materias, materias_por_curs
                 if solo_marcadas:
                     tiene_marcada = False
                     for alumno in alumnos:
-                        # Buscar en estados_data (que viene de Sheets)
                         key = f"{curso_nombre}_{alumno}_{materia_id}"
                         if estados_data.get(key, False):
                             tiene_marcada = True
@@ -395,7 +394,548 @@ def generar_reporte_pdf(profesor, cursos_data, todas_materias, materias_por_curs
     buffer.seek(0)
     return buffer
 
-# ==================== RUTAS ====================
+# ==================== FUNCIONES ADMINISTRATIVAS ====================
+
+def verificar_admin():
+    """Verifica si el usuario actual es administrador"""
+    return session.get('admin', False)
+
+def obtener_todos_profesores():
+    """Obtiene lista de todos los profesores con sus cursos"""
+    try:
+        todas_filas = prof_sheet.get_all_values()
+        profesores = []
+        
+        if len(todas_filas) < 2:
+            return []
+        
+        encabezados = todas_filas[0]
+        
+        for fila in todas_filas[1:]:
+            if len(fila) > 0 and fila[0].strip():
+                profesor = {
+                    'usuario': fila[0].strip(),
+                    'nombre_completo': fila[1].strip() if len(fila) > 1 else '',
+                    'cursos': []
+                }
+                
+                # Obtener cursos del profesor
+                for i in range(1, 4):
+                    idx_curso = 3 + (i-1)*2  # Posición de cursos_m1, cursos_m2, cursos_m3
+                    if len(fila) > idx_curso:
+                        cursos_str = fila[idx_curso].strip() if fila[idx_curso] else ''
+                        if cursos_str:
+                            for c in cursos_str.split(','):
+                                curso_limpio = c.strip()
+                                if curso_limpio and curso_limpio not in profesor['cursos']:
+                                    profesor['cursos'].append(curso_limpio)
+                
+                profesor['cursos'].sort()
+                profesores.append(profesor)
+        
+        return profesores
+    except Exception as e:
+        print(f"Error obteniendo profesores: {e}")
+        return []
+
+def obtener_estadisticas_profesores():
+    """Obtiene estadísticas de descargas por profesor"""
+    try:
+        stats = stats_sheet.get_all_records()
+        return stats
+    except Exception as e:
+        print(f"Error obteniendo estadísticas: {e}")
+        return []
+
+def actualizar_config_sistema(activo, fecha_inicio, fecha_fin):
+    """Actualiza la configuración del sistema"""
+    try:
+        config_data = config_sheet.get_all_records()
+        
+        for idx, row in enumerate(config_data, start=2):
+            clave = row.get('clave', '')
+            if clave == 'activo':
+                config_sheet.update_cell(idx, 2, 'TRUE' if activo else 'FALSE')
+            elif clave == 'fecha_inicio':
+                config_sheet.update_cell(idx, 2, fecha_inicio if fecha_inicio else '')
+            elif clave == 'fecha_fin':
+                config_sheet.update_cell(idx, 2, fecha_fin if fecha_fin else '')
+        
+        return True, "Configuración actualizada correctamente"
+    except Exception as e:
+        return False, str(e)
+
+def obtener_config_actual():
+    """Obtiene la configuración actual del sistema"""
+    try:
+        config_data = config_sheet.get_all_records()
+        config = {
+            'activo': True,
+            'fecha_inicio': '',
+            'fecha_fin': ''
+        }
+        
+        for row in config_data:
+            clave = row.get('clave', '')
+            valor = row.get('valor', '')
+            if clave == 'activo':
+                config['activo'] = convertir_a_booleano(valor)
+            elif clave == 'fecha_inicio':
+                config['fecha_inicio'] = valor
+            elif clave == 'fecha_fin':
+                config['fecha_fin'] = valor
+        
+        return config
+    except Exception as e:
+        print(f"Error obteniendo config: {e}")
+        return {'activo': True, 'fecha_inicio': '', 'fecha_fin': ''}
+
+def obtener_datos_profesor(profesor_usuario):
+    """Obtiene datos completos de un profesor específico"""
+    try:
+        todas_filas = prof_sheet.get_all_values()
+        profesor_data = None
+        
+        if len(todas_filas) < 2:
+            return None
+        
+        encabezados = todas_filas[0]
+        
+        for fila in todas_filas[1:]:
+            if len(fila) > 0 and fila[0].strip().upper() == profesor_usuario.upper():
+                profesor_data = {
+                    'usuario': fila[0].strip(),
+                    'nombre_completo': fila[1].strip() if len(fila) > 1 else '',
+                    'cursos': []
+                }
+                
+                # Obtener materias y cursos
+                for i in range(1, 4):
+                    idx_materia = 1 + (i-1)*2
+                    idx_cursos = 2 + (i-1)*2
+                    
+                    materia = fila[idx_materia].strip() if len(fila) > idx_materia else ''
+                    cursos_str = fila[idx_cursos].strip() if len(fila) > idx_cursos else ''
+                    
+                    profesor_data[f'materia{i}'] = materia
+                    profesor_data[f'cursos_m{i}'] = cursos_str
+                    
+                    if cursos_str:
+                        for c in cursos_str.split(','):
+                            curso_limpio = c.strip()
+                            if curso_limpio and curso_limpio not in profesor_data['cursos']:
+                                profesor_data['cursos'].append(curso_limpio)
+                
+                profesor_data['cursos'].sort()
+                break
+        
+        if not profesor_data:
+            return None
+        
+        # Obtener evaluaciones del profesor
+        todas_respuestas = resp_sheet.get_all_records()
+        evaluaciones = []
+        
+        for respuesta in todas_respuestas:
+            if respuesta.get('profesor', '').upper() == profesor_usuario.upper():
+                evaluacion = {
+                    'curso': respuesta.get('curso', ''),
+                    'alumno': respuesta.get('alumno', ''),
+                    'fecha': respuesta.get('fecha', ''),
+                }
+                materias_marcadas = 0
+                for i in range(1, 21):
+                    if convertir_a_booleano(respuesta.get(f'm{i}', False)):
+                        materias_marcadas += 1
+                evaluacion['total_materias'] = materias_marcadas
+                evaluaciones.append(evaluacion)
+        
+        profesor_data['evaluaciones'] = evaluaciones
+        profesor_data['total_evaluaciones'] = len(evaluaciones)
+        
+        return profesor_data
+        
+    except Exception as e:
+        print(f"Error obteniendo datos del profesor: {e}")
+        return None
+
+def generar_reporte_grupal_pdf(profesores_data, cursos_data_global, todas_materias):
+    """Genera reporte PDF grupal de todos los profesores"""
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=letter,
+                           rightMargin=30, leftMargin=30,
+                           topMargin=30, bottomMargin=30)
+    
+    styles = getSampleStyleSheet()
+    titulo_style = ParagraphStyle(
+        'TituloStyle',
+        parent=styles['Heading1'],
+        fontSize=16,
+        alignment=1,
+        spaceAfter=20,
+        textColor=colors.HexColor('#4a6cf7')
+    )
+    
+    subtitulo_style = ParagraphStyle(
+        'SubtituloStyle',
+        parent=styles['Heading2'],
+        fontSize=12,
+        alignment=1,
+        spaceAfter=10,
+        textColor=colors.HexColor('#666666')
+    )
+    
+    profesor_style = ParagraphStyle(
+        'ProfesorStyle',
+        parent=styles['Heading3'],
+        fontSize=14,
+        spaceAfter=10,
+        spaceBefore=15,
+        textColor=colors.HexColor('#4a6cf7')
+    )
+    
+    elementos = []
+    fecha_actual = datetime.now().strftime("%d/%m/%Y %H:%M")
+    
+    titulo = Paragraph(f"<b>REPORTE GENERAL DE EVALUACIONES</b>", titulo_style)
+    elementos.append(titulo)
+    
+    subtitulo = Paragraph(f"Reporte de todos los profesores<br/>Fecha: {fecha_actual}", subtitulo_style)
+    elementos.append(subtitulo)
+    elementos.append(Spacer(1, 20))
+    
+    for profesor in profesores_data:
+        elementos.append(Paragraph(f"<b>Profesor: {profesor['nombre_completo']} ({profesor['usuario']})</b>", profesor_style))
+        elementos.append(Spacer(1, 10))
+        
+        # Obtener estados para este profesor
+        estados = obtener_estados_desde_sheets(profesor['usuario'])
+        
+        # Obtener estudiantes para los cursos del profesor
+        estudiantes = est_sheet.get_all_records()
+        cursos = {}
+        
+        for est in estudiantes:
+            curso = str(est.get('curso', '')).strip()
+            nombre = str(est.get('nombre', '')).strip()
+            if curso and nombre and curso in profesor['cursos']:
+                if curso not in cursos:
+                    cursos[curso] = []
+                if nombre not in cursos[curso] and nombre:
+                    cursos[curso].append(nombre)
+        
+        # Obtener materias por curso
+        todas_filas = prof_sheet.get_all_values()
+        profesor_dict = {}
+        if len(todas_filas) >= 2:
+            for fila in todas_filas[1:]:
+                if len(fila) > 0 and fila[0].strip().upper() == profesor['usuario'].upper():
+                    encabezados = todas_filas[0]
+                    for idx, header in enumerate(encabezados):
+                        if header and idx < len(fila):
+                            profesor_dict[header] = fila[idx]
+                    break
+        
+        materias_por_curso = obtener_materias_por_curso(profesor_dict, profesor['cursos'])
+        
+        # Mostrar resumen de cada curso
+        for curso_nombre, alumnos in cursos.items():
+            elementos.append(Paragraph(f"<b>Curso: {curso_nombre}</b>", styles['Heading4']))
+            
+            materias_curso_ids = materias_por_curso.get(curso_nombre, [])
+            if not materias_curso_ids:
+                elementos.append(Paragraph("<i>No hay materias asignadas</i>", styles['Italic']))
+                elementos.append(Spacer(1, 10))
+                continue
+            
+            total_marcadas_curso = 0
+            total_posibles_curso = 0
+            
+            for alumno in alumnos:
+                for materia_id in materias_curso_ids:
+                    key = f"{curso_nombre}_{alumno}_{materia_id}"
+                    if estados.get(key, False):
+                        total_marcadas_curso += 1
+                    total_posibles_curso += 1
+            
+            if total_posibles_curso > 0:
+                porcentaje = (total_marcadas_curso / total_posibles_curso) * 100
+                elementos.append(Paragraph(
+                    f"<i>{len(alumnos)} alumnos - {total_marcadas_curso} evaluaciones de {total_posibles_curso} posibles ({porcentaje:.1f}%)</i>",
+                    styles['Italic']
+                ))
+            
+            elementos.append(Spacer(1, 10))
+        
+        elementos.append(Spacer(1, 20))
+    
+    doc.build(elementos)
+    buffer.seek(0)
+    return buffer
+
+# ==================== RUTAS DE ADMINISTRACIÓN ====================
+
+@app.route('/admin/login', methods=['GET', 'POST'])
+def admin_login():
+    """Login para administradores (solo contraseña)"""
+    valido, mensaje = verificar_fecha_valida()
+    if not valido:
+        return render_template('expirado.html', mensaje=mensaje)
+    
+    if request.method == 'POST':
+        password = request.form.get('password', '').strip()
+        
+        # Contraseña de administrador
+        ADMIN_PASS = os.environ.get('ADMIN_PASS', 'admin123')
+        
+        if password == ADMIN_PASS:
+            session['admin'] = True
+            return redirect('/admin/panel')
+        else:
+            return render_template('admin_login.html', error="Contraseña incorrecta")
+    
+    return render_template('admin_login.html')
+
+@app.route('/admin/panel')
+def admin_panel():
+    """Panel principal de administración"""
+    if not verificar_admin():
+        return redirect('/admin/login')
+    
+    valido, mensaje = verificar_fecha_valida()
+    if not valido:
+        return render_template('expirado.html', mensaje=mensaje)
+    
+    try:
+        profesores = obtener_todos_profesores()
+        estadisticas = obtener_estadisticas_profesores()
+        config = obtener_config_actual()
+        
+        todas_respuestas = resp_sheet.get_all_records()
+        total_evaluaciones = len(todas_respuestas)
+        
+        total_marcadas = 0
+        for respuesta in todas_respuestas:
+            for i in range(1, 21):
+                if convertir_a_booleano(respuesta.get(f'm{i}', False)):
+                    total_marcadas += 1
+        
+        # Agregar estadísticas de descargas a cada profesor
+        for profesor in profesores:
+            profesor['descargas'] = 0
+            for stat in estadisticas:
+                if stat.get('profesor', '').upper() == profesor['usuario'].upper():
+                    profesor['descargas'] = int(stat.get('descargas_pdf', 0))
+                    break
+        
+        return render_template('admin_panel.html',
+                             profesores=profesores,
+                             config=config,
+                             total_profesores=len(profesores),
+                             total_evaluaciones=total_evaluaciones,
+                             total_marcadas=total_marcadas)
+    
+    except Exception as e:
+        print(f"Error en admin_panel: {e}")
+        print(traceback.format_exc())
+        return render_template('admin_error.html', mensaje=str(e))
+
+@app.route('/admin/config', methods=['GET', 'POST'])
+def admin_config():
+    """Configuración del sistema (activo/fechas)"""
+    if not verificar_admin():
+        return redirect('/admin/login')
+    
+    if request.method == 'POST':
+        try:
+            activo = request.form.get('activo') == 'on'
+            fecha_inicio = request.form.get('fecha_inicio', '')
+            fecha_fin = request.form.get('fecha_fin', '')
+            
+            # Validar fechas si fueron proporcionadas
+            if fecha_inicio:
+                try:
+                    datetime.strptime(fecha_inicio, "%Y-%m-%dT%H:%M")
+                    fecha_inicio = fecha_inicio.replace('T', ' ') + ':00'
+                except:
+                    return render_template('admin_config.html',
+                                         config=obtener_config_actual(),
+                                         error="Formato de fecha inicio inválido")
+            
+            if fecha_fin:
+                try:
+                    datetime.strptime(fecha_fin, "%Y-%m-%dT%H:%M")
+                    fecha_fin = fecha_fin.replace('T', ' ') + ':00'
+                except:
+                    return render_template('admin_config.html',
+                                         config=obtener_config_actual(),
+                                         error="Formato de fecha fin inválido")
+            
+            exito, mensaje = actualizar_config_sistema(activo, fecha_inicio, fecha_fin)
+            
+            if exito:
+                return render_template('admin_config.html',
+                                     config=obtener_config_actual(),
+                                     mensaje=mensaje)
+            else:
+                return render_template('admin_config.html',
+                                     config=obtener_config_actual(),
+                                     error=mensaje)
+        
+        except Exception as e:
+            return render_template('admin_config.html',
+                                 config=obtener_config_actual(),
+                                 error=str(e))
+    
+    config = obtener_config_actual()
+    # Convertir fechas al formato datetime-local
+    if config['fecha_inicio'] and ' ' in config['fecha_inicio']:
+        config['fecha_inicio_display'] = config['fecha_inicio'].replace(' ', 'T')[:-3]
+    else:
+        config['fecha_inicio_display'] = ''
+    
+    if config['fecha_fin'] and ' ' in config['fecha_fin']:
+        config['fecha_fin_display'] = config['fecha_fin'].replace(' ', 'T')[:-3]
+    else:
+        config['fecha_fin_display'] = ''
+    
+    return render_template('admin_config.html', config=config)
+
+@app.route('/admin/profesor/<usuario>')
+def admin_profesor_detalle(usuario):
+    """Detalle de un profesor específico"""
+    if not verificar_admin():
+        return redirect('/admin/login')
+    
+    try:
+        profesor_data = obtener_datos_profesor(usuario)
+        
+        if not profesor_data:
+            return render_template('admin_error.html', mensaje=f"Profesor '{usuario}' no encontrado")
+        
+        return render_template('admin_profesor_detalle.html', profesor=profesor_data)
+    
+    except Exception as e:
+        print(f"Error en admin_profesor_detalle: {e}")
+        return render_template('admin_error.html', mensaje=str(e))
+
+@app.route('/admin/reporte_individual/<usuario>')
+def admin_reporte_individual(usuario):
+    """Genera reporte PDF individual para un profesor específico"""
+    if not verificar_admin():
+        return redirect('/admin/login')
+    
+    try:
+        profesor_data = obtener_datos_profesor(usuario)
+        
+        if not profesor_data:
+            return "Profesor no encontrado", 404
+        
+        # Obtener cursos y estudiantes
+        estudiantes = est_sheet.get_all_records()
+        cursos = {}
+        
+        for est in estudiantes:
+            curso = str(est.get('curso', '')).strip()
+            nombre = str(est.get('nombre', '')).strip()
+            if curso and nombre and curso in profesor_data.get('cursos', []):
+                if curso not in cursos:
+                    cursos[curso] = []
+                if nombre not in cursos[curso] and nombre:
+                    cursos[curso].append(nombre)
+        
+        # Obtener materias
+        materias_data = mat_sheet.get_all_records()
+        todas_materias = {}
+        for m in materias_data:
+            try:
+                id_materia = int(float(m.get('id', 0)))
+                nombre_materia = str(m.get('nombre', '')).strip()
+                if id_materia > 0 and nombre_materia:
+                    todas_materias[id_materia] = nombre_materia
+            except:
+                pass
+        
+        # Obtener datos del profesor de la hoja
+        todas_filas = prof_sheet.get_all_values()
+        profesor_dict = {}
+        if len(todas_filas) >= 2:
+            for fila in todas_filas[1:]:
+                if len(fila) > 0 and fila[0].strip().upper() == usuario.upper():
+                    encabezados = todas_filas[0]
+                    for idx, header in enumerate(encabezados):
+                        if header and idx < len(fila):
+                            profesor_dict[header] = fila[idx]
+                    break
+        
+        materias_por_curso = obtener_materias_por_curso(profesor_dict, profesor_data.get('cursos', []))
+        
+        # Obtener estados desde Sheets
+        estados = obtener_estados_desde_sheets(usuario)
+        
+        # Generar PDF
+        pdf_buffer = generar_reporte_pdf(usuario, cursos, todas_materias, materias_por_curso, estados, solo_marcadas=True, nombre_completo=profesor_data.get('nombre_completo', usuario))
+        
+        nombre_limpio = profesor_data.get('nombre_completo', usuario).replace(' ', '_')
+        
+        return send_file(
+            pdf_buffer,
+            as_attachment=True,
+            download_name=f"reporte_individual_{nombre_limpio}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
+            mimetype='application/pdf'
+        )
+    
+    except Exception as e:
+        print(f"Error generando reporte individual: {e}")
+        print(traceback.format_exc())
+        return f"Error al generar PDF: {e}"
+
+@app.route('/admin/reporte_grupal')
+def admin_reporte_grupal():
+    """Genera reporte PDF grupal de todos los profesores"""
+    if not verificar_admin():
+        return redirect('/admin/login')
+    
+    try:
+        profesores = obtener_todos_profesores()
+        
+        if not profesores:
+            return "No hay profesores registrados", 404
+        
+        # Obtener materias
+        materias_data = mat_sheet.get_all_records()
+        todas_materias = {}
+        for m in materias_data:
+            try:
+                id_materia = int(float(m.get('id', 0)))
+                nombre_materia = str(m.get('nombre', '')).strip()
+                if id_materia > 0 and nombre_materia:
+                    todas_materias[id_materia] = nombre_materia
+            except:
+                pass
+        
+        # Generar PDF grupal
+        pdf_buffer = generar_reporte_grupal_pdf(profesores, None, todas_materias)
+        
+        return send_file(
+            pdf_buffer,
+            as_attachment=True,
+            download_name=f"reporte_grupal_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
+            mimetype='application/pdf'
+        )
+    
+    except Exception as e:
+        print(f"Error generando reporte grupal: {e}")
+        print(traceback.format_exc())
+        return f"Error al generar PDF: {e}"
+
+@app.route('/admin/logout')
+def admin_logout():
+    """Cierre de sesión administrador"""
+    session.pop('admin', None)
+    return redirect('/admin/login')
+
+# ==================== RUTAS ORIGINALES (sin cambios) ====================
 
 @app.route('/', methods=['GET', 'POST'])
 def login():
@@ -510,10 +1050,8 @@ def panel():
             except Exception as e:
                 continue
         
-        # Cargar estados desde Sheets para el panel
         estados = obtener_estados_desde_sheets(usuario)
         
-        # Limpiar y actualizar sesión para el panel
         keys_to_remove = [key for key in session.keys() if key.startswith('estado_temp_')]
         for key in keys_to_remove:
             session.pop(key, None)
@@ -557,13 +1095,11 @@ def guardar():
         
         valor_texto = booleano_a_texto(valor)
         
-        # Guardar en sesión
         key = f"{curso}_{alumno}_{materia}"
         session[f"estado_temp_{key}"] = valor
         
         print(f"💾 Guardando: {profesor} - {curso} - {alumno} - M{materia} = {valor_texto}")
         
-        # Buscar si ya existe registro usando normalización
         todas_filas = resp_sheet.get_all_values()
         
         num_fila = None
@@ -662,7 +1198,6 @@ def pdf():
             except:
                 pass
         
-        # 🔴 CLAVE: Obtener estados DIRECTAMENTE desde Google Sheets
         estados = obtener_estados_desde_sheets(profesor)
         print(f"📊 PDF: {len(estados)} estados cargados desde Sheets para {profesor}")
         
