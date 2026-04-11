@@ -47,7 +47,7 @@ def obtener_estados_desde_sheets(profesor):
                 alumno = respuesta.get('alumno', '')
                 
                 if curso and alumno:
-                    for i in range(1, 16):
+                    for i in range(1, 21):
                         columna = f"m{i}"
                         valor = respuesta.get(columna, False)
                         valor_bool = convertir_a_booleano(valor)
@@ -206,7 +206,7 @@ def obtener_materias_por_curso(profesor_dict, cursos_disponibles):
         
         try:
             materia_id_int = int(float(materia_id))
-            if materia_id_int <= 0 or materia_id_int > 15:
+            if materia_id_int <= 0 or materia_id_int > 20:
                 continue
         except:
             continue
@@ -587,19 +587,19 @@ def guardar():
             resp_sheet.update_cell(num_fila, columna_materia, valor_texto)
             resp_sheet.update_cell(num_fila, 1, profesor)
             
-            if len(todas_filas[num_fila-1]) >= 19:
-                resp_sheet.update_cell(num_fila, 19, fecha)
+            if len(todas_filas[num_fila-1]) >= 24:
+                resp_sheet.update_cell(num_fila, 24, fecha)
             else:
                 valores_actuales = resp_sheet.row_values(num_fila)
-                while len(valores_actuales) < 19:
+                while len(valores_actuales) < 24:
                     valores_actuales.append('')
-                valores_actuales[18] = fecha
-                resp_sheet.update(f'A{num_fila}:S{num_fila}', [valores_actuales])
+                valores_actuales[23] = fecha
+                resp_sheet.update(f'A{num_fila}:X{num_fila}', [valores_actuales])
             
             print(f"   Actualizada fila {num_fila}")
         else:
             nueva_fila = [profesor, curso, alumno]
-            for i in range(15):
+            for i in range(20):
                 nueva_fila.append("FALSE")
             nueva_fila.append(fecha)
             
