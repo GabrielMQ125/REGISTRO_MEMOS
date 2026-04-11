@@ -772,7 +772,9 @@ def admin_panel():
         return redirect('/admin')
     
     try:
-        # Obtener configuración
+        # ========== 1. UNA SOLA LECTURA DE CADA HOJA ==========
+        
+        # Leer CONFIG
         config = {'activo': True, 'fecha_inicio': '', 'fecha_fin': ''}
         try:
             valores_config = config_sheet.get_all_values()
@@ -790,121 +792,27 @@ def admin_panel():
         except Exception as e:
             print(f"⚠️ Error leyendo CONFIG: {e}")
         
-        # Obtener TODOS los estudiantes para estadísticas
-        estudiantes = est_sheet.get_all_records()
+        # Leer ESTUDIANTES (una sola vez)
+        estudiantes_lista = []
         alumnos_por_curso = {}
-        for est in estudiantes:
-            curso = str(est.get('curso', '')).strip()
-            if curso:
-                if curso not in alumnos_por_curso:
-                    alumnos_por_curso[curso] = []
-                alumnos_por_curso[curso].append(str(est.get('nombre', '')).strip())
-        
-        # Obtener profesores con estadísticas completas
-        profesores = []
-        try:
-            valores_prof = prof_sheet.get_all_values()
-            if len(valores_prof) > 1:
-                encabezados = valores_prof[0]
-                for fila in valores_prof[1:]:
-                    prof_dict = {}
-                    for i, header in enumerate(encabezados):
-                        if i < len(fila):
-                            prof_dict[header] = fila[i]
-                    
-                    usuario = prof_dict.get('usuario', '')
-                    if usuario:
-                        # Obtener cursos del profesor
-                        cursos_set = set()
-                        materias_por_curso_prof = {}
-                        for i in range(1, 4):
-                            cursos_str = prof_dict.get(f'cursos_m{i}', '')
-                            materia_id = prof_dict.get(f'm{i}', '')
-                            if cursos_str:
-                                for c in str(cursos_str).split(','):
-                                    curso_limpio = c.strip()
-                                    if curso_limpio:
-                                        cursos_set.add(curso_limpio)
-                                        if materia_id:
-                                            if curso_limpio not in materias_por_curso_prof:
-                                                materias_por_curso_prof[curso_limpio] = []
-                                            try:
-                                                materias_por_curso_prof[curso_limpio].append(int(float(materia_id)))
-                                            except:
-                                                pass
-                        
-                        cursos_lista = sorted(list(cursos_set))
-                        
-                        # Obtener estados de este profesor desde Sheets
-                        estados_prof = obtener_estados_desde_sheets(usuario)
-                        
-                        # Calcular estadísticas por curso
-                        cursos_detalle = []
-                        total_evaluaciones_prof = 0
-                        total_posibles_prof = 0
-                        
-                        for curso in cursos_lista:
-                            alumnos_curso = alumnos_por_curso.get(curso, [])
-                            materias_curso = materias_por_curso_prof.get(curso, [])
-                            
-                            evaluadas = 0
-                            posibles = len(alumnos_curso) * len(materias_curso)
-                            
-                            for alumno in alumnos_curso:
-                                for materia in materias_curso:
-                                    key = f"{curso}_{alumno}_{materia}"
-                                    if estados_prof.get(key, False):
-                                        evaluadas += 1
-                            
-                            total_evaluaciones_prof += evaluadas
-                            total_posibles_prof += posibles
-                            
-                            porcentaje = (evaluadas / posibles * 100) if posibles > 0 else 0
-                            
-                            cursos_detalle.append({
-                                'nombre': curso,
-                                'alumnos': len(alumnos_curso),
-                                'materias': len(materias_curso),
-                                'evaluadas': evaluadas,
-                                'posibles': posibles,
-                                'porcentaje': round(porcentaje, 1)
-                            })
-                        
-                        # Obtener estadísticas de descargas
-                        stats = {}
-                        try:
-                            stats_data = stats_sheet.get_all_records()
-                            for stat in stats_data:
-                                if stat.get('profesor', '').upper() == usuario.upper():
-                                    stats = stat
-                                    break
-                        except:
-                            pass
-                        
-                        porcentaje_general = (total_evaluaciones_prof / total_posibles_prof * 100) if total_posibles_prof > 0 else 0
-                        
-                        profesores.append({
-                            'usuario': usuario,
-                            'nombre_completo': prof_dict.get('nombre_completo', usuario),
-                            'cursos': cursos_lista,
-                            'cursos_detalle': cursos_detalle,
-                            'descargas': stats.get('descargas_pdf', 0),
-                            'ultima_descarga': stats.get('ultima_descarga', ''),
-                            'total_evaluaciones': total_evaluaciones_prof,
-                            'total_posibles': total_posibles_prof,
-                            'porcentaje_general': round(porcentaje_general, 1)
-                        })
-        except Exception as e:
-            print(f"⚠️ Error leyendo PROFESORES: {e}")
-        
-        # Obtener cursos únicos
         cursos_unicos = set()
-        for est in estudiantes:
-            curso = str(est.get('curso', '')).strip()
-            if curso:
-                cursos_unicos.add(curso)
+        try:
+            valores_est = est_sheet.get_all_values()
+            if len(valores_est) > 1:
+                for fila in valores_est[1:]:
+                    if len(fila) >= 2:
+                        curso = str(fila[0]).strip() if fila[0] else ''
+                        nombre = str(fila[1]).strip() if len(fila) > 1 and fila[1] else ''
+                        if curso and nombre:
+                            estudiantes_lista.append({'curso': curso, 'nombre': nombre})
+                            cursos_unicos.add(curso)
+                            if curso not in alumnos_por_curso:
+                                alumnos_por_curso[curso] = []
+                            alumnos_por_curso[curso].append(nombre)
+        except Exception as e:
+            print(f"⚠️ Error leyendo ESTUDIANTES: {e}")
         
-        # Obtener materias
+        # Leer MATERIAS (una sola vez)
         todas_materias = {}
         try:
             valores_mat = mat_sheet.get_all_values()
@@ -919,24 +827,168 @@ def admin_panel():
         except Exception as e:
             print(f"⚠️ Error leyendo MATERIAS: {e}")
         
-        # Agrupar materias por curso
+        # Leer PROFESORES (una sola vez)
+        profesores_data = []
+        try:
+            valores_prof = prof_sheet.get_all_values()
+            if len(valores_prof) > 1:
+                encabezados = valores_prof[0]
+                for fila in valores_prof[1:]:
+                    prof_dict = {}
+                    for i, header in enumerate(encabezados):
+                        if i < len(fila):
+                            prof_dict[header] = fila[i]
+                    if prof_dict.get('usuario', ''):
+                        profesores_data.append(prof_dict)
+        except Exception as e:
+            print(f"⚠️ Error leyendo PROFESORES: {e}")
+        
+        # Leer RESPUESTAS (UNA SOLA VEZ PARA TODO)
+        todas_respuestas = []
+        try:
+            valores_resp = resp_sheet.get_all_values()
+            if len(valores_resp) > 1:
+                encabezados_resp = valores_resp[0]
+                for fila in valores_resp[1:]:
+                    resp_dict = {}
+                    for i, header in enumerate(encabezados_resp):
+                        if i < len(fila):
+                            resp_dict[header] = fila[i]
+                    todas_respuestas.append(resp_dict)
+        except Exception as e:
+            print(f"⚠️ Error leyendo RESPUESTAS: {e}")
+        
+        # Leer ESTADISTICAS (una sola vez)
+        stats_por_profesor = {}
+        try:
+            valores_stats = stats_sheet.get_all_values()
+            if len(valores_stats) > 1:
+                for fila in valores_stats[1:]:
+                    if len(fila) >= 3:
+                        prof = fila[0].strip().upper() if fila[0] else ''
+                        if prof:
+                            stats_por_profesor[prof] = {
+                                'descargas': fila[1] if len(fila) > 1 else '0',
+                                'ultima': fila[2] if len(fila) > 2 else ''
+                            }
+        except Exception as e:
+            print(f"⚠️ Error leyendo ESTADISTICAS: {e}")
+        
+        # ========== 2. PROCESAR TODO EN MEMORIA ==========
+        
+        # Pre-procesar respuestas por profesor (un solo recorrido)
+        respuestas_por_profesor = {}
+        total_evaluaciones = 0
+        
+        for resp in todas_respuestas:
+            profesor_resp = resp.get('profesor', '')
+            if profesor_resp:
+                profesor_norm = normalizar_texto(profesor_resp)
+                if profesor_norm not in respuestas_por_profesor:
+                    respuestas_por_profesor[profesor_norm] = {}
+                
+                curso = resp.get('curso', '')
+                alumno = resp.get('alumno', '')
+                
+                if curso and alumno:
+                    for i in range(1, 21):
+                        columna = f"m{i}"
+                        valor = resp.get(columna, False)
+                        if convertir_a_booleano(valor):
+                            key = f"{curso}_{alumno}_{i}"
+                            respuestas_por_profesor[profesor_norm][key] = True
+                            total_evaluaciones += 1
+        
+        # Procesar cada profesor
+        profesores = []
+        for prof_dict in profesores_data:
+            usuario = prof_dict.get('usuario', '')
+            if usuario:
+                # Cursos del profesor
+                cursos_set = set()
+                materias_por_curso_prof = {}
+                for i in range(1, 4):
+                    cursos_str = prof_dict.get(f'cursos_m{i}', '')
+                    materia_id = prof_dict.get(f'm{i}', '')
+                    if cursos_str:
+                        for c in str(cursos_str).split(','):
+                            curso_limpio = c.strip()
+                            if curso_limpio:
+                                cursos_set.add(curso_limpio)
+                                if materia_id:
+                                    if curso_limpio not in materias_por_curso_prof:
+                                        materias_por_curso_prof[curso_limpio] = []
+                                    try:
+                                        materias_por_curso_prof[curso_limpio].append(int(float(materia_id)))
+                                    except:
+                                        pass
+                
+                cursos_lista = sorted(list(cursos_set))
+                
+                # Obtener estados de este profesor (ya procesados en memoria)
+                usuario_norm = normalizar_texto(usuario)
+                estados_prof = respuestas_por_profesor.get(usuario_norm, {})
+                
+                # Calcular estadísticas por curso
+                cursos_detalle = []
+                total_evaluaciones_prof = 0
+                total_posibles_prof = 0
+                
+                for curso in cursos_lista:
+                    alumnos_curso = alumnos_por_curso.get(curso, [])
+                    materias_curso = materias_por_curso_prof.get(curso, [])
+                    
+                    evaluadas = 0
+                    posibles = len(alumnos_curso) * len(materias_curso)
+                    
+                    for alumno in alumnos_curso:
+                        for materia in materias_curso:
+                            key = f"{curso}_{alumno}_{materia}"
+                            if estados_prof.get(key, False):
+                                evaluadas += 1
+                    
+                    total_evaluaciones_prof += evaluadas
+                    total_posibles_prof += posibles
+                    
+                    porcentaje = (evaluadas / posibles * 100) if posibles > 0 else 0
+                    
+                    cursos_detalle.append({
+                        'nombre': curso,
+                        'alumnos': len(alumnos_curso),
+                        'materias': len(materias_curso),
+                        'evaluadas': evaluadas,
+                        'posibles': posibles,
+                        'porcentaje': round(porcentaje, 1)
+                    })
+                
+                # Estadísticas de descargas
+                stats = stats_por_profesor.get(usuario.upper(), {})
+                
+                porcentaje_general = (total_evaluaciones_prof / total_posibles_prof * 100) if total_posibles_prof > 0 else 0
+                
+                profesores.append({
+                    'usuario': usuario,
+                    'nombre_completo': prof_dict.get('nombre_completo', usuario),
+                    'cursos': cursos_lista,
+                    'cursos_detalle': cursos_detalle,
+                    'descargas': int(stats.get('descargas', 0)) if stats.get('descargas', '').isdigit() else 0,
+                    'ultima_descarga': stats.get('ultima', ''),
+                    'total_evaluaciones': total_evaluaciones_prof,
+                    'total_posibles': total_posibles_prof,
+                    'porcentaje_general': round(porcentaje_general, 1)
+                })
+        
+        # Agrupar materias por curso para la pestaña Cursos
         cursos_materias = {}
         for curso in sorted(cursos_unicos):
             cursos_materias[curso] = []
             for id_mat, nombre_mat in todas_materias.items():
                 cursos_materias[curso].append({'id': id_mat, 'nombre': nombre_mat})
         
-        # Estadísticas generales
+        # Totales
         total_profesores = len(profesores)
         total_cursos = len(cursos_unicos)
-        total_alumnos = len(estudiantes)
-        
-        respuestas = resp_sheet.get_all_records()
-        total_evaluaciones = 0
-        for resp in respuestas:
-            for i in range(1, 21):
-                if convertir_a_booleano(resp.get(f'm{i}', False)):
-                    total_evaluaciones += 1
+        total_alumnos = len(estudiantes_lista)
         
         return render_template('admin_panel.html',
                              config=config,
