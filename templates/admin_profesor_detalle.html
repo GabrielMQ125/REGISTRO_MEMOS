@@ -2,324 +2,130 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Detalle - {{ profesor.usuario }}</title>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f5f5f5; }
-        .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px 0; }
-        .header-content { max-width: 1200px; margin: 0 auto; padding: 0 15px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
-        .header h1 { font-size: 1.2rem; }
-        .nav a { color: white; text-decoration: none; padding: 6px 12px; border-radius: 5px; font-size: 0.85rem; }
-        .nav a:hover { background: rgba(255,255,255,0.2); }
-        .container { max-width: 1200px; margin: 20px auto; padding: 0 15px; }
-        .card { background: white; border-radius: 10px; padding: 20px; margin-bottom: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-        .info-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px; margin-bottom: 15px; }
-        .info-item { padding: 8px; border-left: 3px solid #667eea; }
-        .info-label { font-weight: 600; color: #666; font-size: 0.7rem; text-transform: uppercase; margin-bottom: 5px; }
-        .info-value { font-size: 0.9rem; color: #333; word-break: break-word; }
-        .table-container { overflow-x: auto; margin-top: 15px; }
-        table { width: 100%; border-collapse: collapse; min-width: 500px; }
-        th, td { padding: 10px 8px; text-align: left; border-bottom: 1px solid #ddd; font-size: 0.85rem; }
-        th { background: #f8f9fa; font-weight: 600; position: sticky; top: 0; }
-        .btn { display: inline-block; padding: 8px 15px; background: #667eea; color: white; text-decoration: none; border-radius: 5px; margin-top: 15px; margin-right: 10px; font-size: 0.85rem; }
-        .btn:hover { background: #5a67d8; }
-        .btn-success { background: #28a745; }
-        .btn-success:hover { background: #218838; }
-        .badge-info { background: #d1ecf1; color: #0c5460; display: inline-block; padding: 3px 8px; border-radius: 4px; font-size: 0.7rem; margin: 2px; }
-        .cursos-container span { display: inline-block; background: #e7f3ff; padding: 3px 8px; border-radius: 5px; margin: 3px; font-size: 0.8rem; }
-        .materia-tab { padding: 8px 15px; background: white; border-radius: 20px; cursor: pointer; transition: all 0.3s; border: 1px solid #ddd; font-size: 0.85rem; display: inline-block; margin: 5px; }
-        .materia-tab:hover { background: #667eea; color: white; }
-        .materia-tab.active { background: #667eea; color: white; border-color: #667eea; }
-        .materias-header { background: #e7f3ff; padding: 10px 15px; display: flex; gap: 10px; flex-wrap: wrap; border-bottom: 1px solid #ddd; }
-        .curso-tab { padding: 8px 15px; background: #667eea; color: white; border-radius: 20px; cursor: pointer; transition: all 0.3s; margin: 5px; display: inline-block; }
-        .curso-tab:hover { background: #5a67d8; }
-        .curso-tab.active { background: #28a745; }
-        .curso-contenido { display: none; }
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+        .header { background: #667eea; color: white; padding: 15px; margin-bottom: 20px; border-radius: 10px; }
+        .card { background: white; padding: 20px; margin-bottom: 20px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
+        th { background: #667eea; color: white; }
+        .check-yes { color: green; font-weight: bold; }
+        .check-no { color: red; font-weight: bold; }
+        .curso-tab, .materia-tab { display: inline-block; padding: 8px 20px; margin: 5px; background: #667eea; color: white; border-radius: 25px; cursor: pointer; }
+        .curso-tab.active, .materia-tab.active { background: #28a745; }
+        .curso-contenido { display: none; margin-top: 20px; }
         .curso-contenido.active { display: block; }
-        .check-yes { color: #28a745; font-weight: bold; font-size: 1.2rem; text-align: center; }
-        .check-no { color: #dc3545; font-weight: bold; font-size: 1.2rem; text-align: center; }
-        .text-center { text-align: center; }
-        .estadistica { background: #e7f3ff; padding: 10px; border-radius: 5px; margin-top: 10px; font-size: 0.85rem; }
-        @media (max-width: 768px) {
-            .header-content { flex-direction: column; text-align: center; }
-            .info-grid { grid-template-columns: 1fr; gap: 10px; }
-            th, td { padding: 6px 4px; font-size: 0.7rem; }
-            .materia-tab, .curso-tab { padding: 5px 10px; font-size: 0.7rem; }
-        }
+        .tabla-materia { display: none; margin-top: 20px; }
+        .tabla-materia.active { display: block; }
+        .badge { background: #e7f3ff; padding: 5px 12px; margin: 5px; display: inline-block; border-radius: 20px; }
     </style>
 </head>
 <body>
     <div class="header">
-        <div class="header-content">
-            <h1>👨‍🏫 {{ profesor.usuario }}</h1>
-            <div class="nav">
-                <a href="/admin/panel">← Volver</a>
-                <a href="/admin/reporte_individual/{{ profesor.usuario }}">📄 PDF</a>
-                <a href="/admin/logout">Salir</a>
-            </div>
-        </div>
+        <h1>👨‍🏫 {{ profesor.nombre_completo }} ({{ profesor.usuario }})</h1>
+        <p>Total evaluaciones: {{ profesor.total_evaluaciones }}</p>
+        <a href="/admin/panel" style="color: white;">← Volver</a> | 
+        <a href="/admin/reporte_individual/{{ profesor.usuario }}" style="color: white;">📄 PDF</a>
     </div>
     
-    <div class="container">
-        <!-- Información del profesor -->
-        <div class="card">
-            <div class="info-grid">
-                <div class="info-item">
-                    <div class="info-label">Usuario</div>
-                    <div class="info-value">{{ profesor.usuario }}</div>
-                </div>
-                <div class="info-item">
-                    <div class="info-label">Nombre Completo</div>
-                    <div class="info-value">{{ profesor.nombre_completo }}</div>
-                </div>
-                <div class="info-item">
-                    <div class="info-label">Total Evaluaciones</div>
-                    <div class="info-value">{{ profesor.total_evaluaciones }}</div>
-                </div>
-            </div>
-            
-            <div class="info-item">
-                <div class="info-label">Cursos Asignados</div>
-                <div class="info-value cursos-container">
-                    {% for curso in profesor.cursos %}
-                    <span>{{ curso }}</span>
-                    {% endfor %}
-                </div>
-            </div>
-            
-            <div class="info-item">
-                <div class="info-label">Materias Asignadas</div>
-                <div class="info-value">
-                    {% if profesor.materia1 %}
-                    <span class="badge-info">📚 {{ profesor.materia1 }} ({{ profesor.cursos_m1 }})</span>
-                    {% endif %}
-                    {% if profesor.materia2 %}
-                    <span class="badge-info">📚 {{ profesor.materia2 }} ({{ profesor.cursos_m2 }})</span>
-                    {% endif %}
-                    {% if profesor.materia3 %}
-                    <span class="badge-info">📚 {{ profesor.materia3 }} ({{ profesor.cursos_m3 }})</span>
-                    {% endif %}
-                </div>
-            </div>
-        </div>
+    <div class="card">
+        <h3>Cursos Asignados</h3>
+        {% for curso in profesor.cursos %}
+            <span class="badge">{{ curso }}</span>
+        {% endfor %}
+    </div>
+    
+    <div class="card">
+        <h3>Evaluaciones por Curso y Materia</h3>
         
-        <!-- Evaluaciones por curso y materia -->
-        <div class="card">
-            <h3 style="margin-bottom:15px;">📊 Evaluaciones por Curso y Materia</h3>
-            
-            <!-- Selector de cursos -->
-            <div class="materias-header">
-                {% for curso, alumnos in cursos_con_estudiantes.items() %}
-                <div class="curso-tab" data-curso="{{ curso }}">{{ curso }} ({{ alumnos|length }} alumnos)</div>
-                {% endfor %}
-            </div>
-            
-            <!-- Contenido por curso -->
+        <!-- Pestañas de cursos -->
+        <div>
             {% for curso, alumnos in cursos_con_estudiantes.items() %}
-            <div class="curso-contenido" id="curso-{{ curso }}">
-                {% set materias_ids = materias_por_curso.get(curso, []) %}
-                {% if materias_ids %}
-                <!-- Selector de materias dentro del curso -->
-                <div class="materias-header" style="margin-top: 15px;">
-                    {% for materia_id in materias_ids %}
-                        {% if materia_id in todas_materias %}
-                        <div class="materia-tab" data-curso="{{ curso }}" data-materia="{{ materia_id }}">
-                            {{ todas_materias[materia_id] }}
-                        </div>
-                        {% endif %}
-                    {% endfor %}
-                </div>
-                
-                <!-- Tablas por materia -->
-                {% for materia_id in materias_ids %}
-                    {% if materia_id in todas_materias %}
-                    <div class="tabla-materia" id="tabla-{{ curso }}-{{ materia_id }}" style="display: none;">
-                        <div class="table-container">
-                            <table>
-                                <thead>
-                                    <tr>
-                                        <th>#</th>
-                                        <th>Alumno</th>
-                                        <th class="text-center">Evaluado</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {% for alumno in alumnos %}
-                                    <tr>
-                                        <td>{{ loop.index }}</td>
-                                        <td>{{ alumno }}</td>
-                                        <td class="text-center">
-                                            {% set evaluacion = evaluaciones_detalle.get(curso, {}).get(alumno, {}).get(materia_id, false) %}
-                                            {% if evaluacion %}
-                                            <span class="check-yes">✓</span>
-                                            {% else %}
-                                            <span class="check-no">✗</span>
-                                            {% endif %}
-                                        </td>
-                                    </tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
-                        </div>
-                        
-                        <!-- Estadísticas de la materia -->
-                        {% set total_marcadas = 0 %}
-                        {% for alumno in alumnos %}
-                            {% if evaluaciones_detalle.get(curso, {}).get(alumno, {}).get(materia_id, false) %}
-                                {% set total_marcadas = total_marcadas + 1 %}
-                            {% endif %}
-                        {% endfor %}
-                        {% set porcentaje = (total_marcadas / alumnos|length * 100) | round(1) if alumnos|length > 0 else 0 %}
-                        <div class="estadistica">
-                            📈 Estadísticas: {{ total_marcadas }} de {{ alumnos|length }} alumnos evaluados ({{ porcentaje }}%)
-                        </div>
-                    </div>
-                    {% endif %}
-                {% endfor %}
-                {% else %}
-                <p style="margin-top: 15px; color: #666;">No hay materias asignadas para este curso</p>
-                {% endif %}
-            </div>
+                <div class="curso-tab" data-curso="{{ curso }}">{{ curso }} ({{ alumnos|length }})</div>
             {% endfor %}
         </div>
         
-        <!-- Resumen general por curso -->
-        <div class="card">
-            <h3 style="margin-bottom:15px;">📈 Resumen General por Curso</h3>
-            <div class="table-container">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Curso</th>
-                            <th>Alumnos</th>
-                            <th>Total Evaluaciones Posibles</th>
-                            <th>Total Evaluaciones Realizadas</th>
-                            <th>Porcentaje</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for curso, alumnos in cursos_con_estudiantes.items() %}
-                        {% set materias_ids = materias_por_curso.get(curso, []) %}
-                        {% set total_posibles = alumnos|length * materias_ids|length %}
-                        {% set total_marcadas = 0 %}
-                        {% for materia_id in materias_ids %}
-                            {% for alumno in alumnos %}
-                                {% if evaluaciones_detalle.get(curso, {}).get(alumno, {}).get(materia_id, false) %}
-                                    {% set total_marcadas = total_marcadas + 1 %}
-                                {% endif %}
-                            {% endfor %}
-                        {% endfor %}
-                        {% set porcentaje = (total_marcadas / total_posibles * 100) | round(1) if total_posibles > 0 else 0 %}
-                        <tr>
-                            <td><strong>{{ curso }}</strong></td>
-                            <td>{{ alumnos|length }}</td>
-                            <td>{{ total_posibles }}</td>
-                            <td>{{ total_marcadas }}</td>
-                            <td>
-                                <div style="background: #e0e0e0; border-radius: 10px; overflow: hidden; width: 100px; display: inline-block;">
-                                    <div style="background: #28a745; width: {{ porcentaje }}%; height: 20px;"></div>
-                                </div>
-                                {{ porcentaje }}%
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+        <!-- Contenido de cada curso -->
+        {% for curso, alumnos in cursos_con_estudiantes.items() %}
+        <div class="curso-contenido" id="curso-{{ curso }}">
+            <h4>Curso: {{ curso }}</h4>
+            
+            <!-- Pestañas de materias -->
+            <div>
+                {% for materia_id in materias_por_curso.get(curso, []) %}
+                    {% if materia_id in todas_materias %}
+                        <div class="materia-tab" data-curso="{{ curso }}" data-materia="{{ materia_id }}">
+                            {{ todas_materias[materia_id] }}
+                        </div>
+                    {% endif %}
+                {% endfor %}
             </div>
+            
+            <!-- Tablas de cada materia -->
+            {% for materia_id in materias_por_curso.get(curso, []) %}
+                {% if materia_id in todas_materias %}
+                <div class="tabla-materia" id="tabla-{{ curso }}-{{ materia_id }}">
+                    <table>
+                        <thead><tr><th>#</th><th>Alumno</th><th>Estado</th></tr></thead>
+                        <tbody>
+                            {% for alumno in alumnos %}
+                                {% set key = curso ~ "_" ~ alumno ~ "_" ~ materia_id %}
+                                {% set evaluado = evaluaciones_detalle.get(curso, {}).get(alumno, {}).get(materia_id, false) %}
+                            <tr>
+                                <td>{{ loop.index }}</td>
+                                <td>{{ alumno }}</td>
+                                <td>{% if evaluado %}✓ EVALUADO{% else %}✗ NO EVALUADO{% endif %}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% endif %}
+            {% endfor %}
         </div>
+        {% endfor %}
     </div>
     
     <script>
-        // Mostrar primer curso por defecto
-        document.addEventListener('DOMContentLoaded', function() {
-            const primerosCursos = document.querySelectorAll('.curso-tab');
-            if (primerosCursos.length > 0) {
-                primerosCursos[0].classList.add('active');
-                const primerCursoId = primerosCursos[0].getAttribute('data-curso');
-                const primerContenido = document.getElementById('curso-' + primerCursoId);
-                if (primerContenido) {
-                    primerContenido.classList.add('active');
-                    
-                    // Mostrar primera materia del primer curso
-                    const primerasMaterias = primerContenido.querySelectorAll('.materia-tab');
-                    if (primerasMaterias.length > 0) {
-                        primerasMaterias[0].classList.add('active');
-                        const curso = primerasMaterias[0].getAttribute('data-curso');
-                        const materia = primerasMaterias[0].getAttribute('data-materia');
-                        const primeraTabla = document.getElementById('tabla-' + curso + '-' + materia);
-                        if (primeraTabla) {
-                            primeraTabla.style.display = 'block';
-                        }
-                    }
-                }
+        // Mostrar primer curso
+        const primerosCursos = document.querySelectorAll('.curso-tab');
+        if (primerosCursos.length > 0) {
+            primerosCursos[0].classList.add('active');
+            const primerCurso = primerosCursos[0].getAttribute('data-curso');
+            document.getElementById('curso-' + primerCurso).classList.add('active');
+            
+            const primerasMaterias = document.querySelectorAll('.materia-tab');
+            if (primerasMaterias.length > 0) {
+                primerasMaterias[0].classList.add('active');
+                const curso = primerasMaterias[0].getAttribute('data-curso');
+                const materia = primerasMaterias[0].getAttribute('data-materia');
+                document.getElementById('tabla-' + curso + '-' + materia).classList.add('active');
             }
-        });
+        }
         
-        // Manejar clic en cursos
+        // Cambiar curso
         document.querySelectorAll('.curso-tab').forEach(tab => {
             tab.addEventListener('click', function() {
                 const curso = this.getAttribute('data-curso');
-                
-                // Desactivar todos los cursos
                 document.querySelectorAll('.curso-tab').forEach(t => t.classList.remove('active'));
                 this.classList.add('active');
-                
-                // Ocultar todos los contenidos de cursos
-                document.querySelectorAll('.curso-contenido').forEach(contenido => {
-                    contenido.classList.remove('active');
-                });
-                
-                // Mostrar el contenido del curso seleccionado
-                const contenidoSeleccionado = document.getElementById('curso-' + curso);
-                if (contenidoSeleccionado) {
-                    contenidoSeleccionado.classList.add('active');
-                    
-                    // Mostrar la primera materia del curso seleccionado
-                    const primerasMaterias = contenidoSeleccionado.querySelectorAll('.materia-tab');
-                    if (primerasMaterias.length > 0) {
-                        // Desactivar todas las materias
-                        contenidoSeleccionado.querySelectorAll('.materia-tab').forEach(m => m.classList.remove('active'));
-                        primerasMaterias[0].classList.add('active');
-                        
-                        // Ocultar todas las tablas
-                        contenidoSeleccionado.querySelectorAll('.tabla-materia').forEach(tabla => {
-                            tabla.style.display = 'none';
-                        });
-                        
-                        // Mostrar la primera tabla
-                        const cursoAttr = primerasMaterias[0].getAttribute('data-curso');
-                        const materiaAttr = primerasMaterias[0].getAttribute('data-materia');
-                        const primeraTabla = document.getElementById('tabla-' + cursoAttr + '-' + materiaAttr);
-                        if (primeraTabla) {
-                            primeraTabla.style.display = 'block';
-                        }
-                    }
-                }
+                document.querySelectorAll('.curso-contenido').forEach(c => c.classList.remove('active'));
+                document.getElementById('curso-' + curso).classList.add('active');
             });
         });
         
-        // Manejar clic en materias
+        // Cambiar materia
         document.querySelectorAll('.materia-tab').forEach(tab => {
             tab.addEventListener('click', function() {
                 const curso = this.getAttribute('data-curso');
                 const materia = this.getAttribute('data-materia');
-                const contenidoCurso = this.closest('.curso-contenido');
-                
-                // Desactivar todas las materias de este curso
-                contenidoCurso.querySelectorAll('.materia-tab').forEach(t => t.classList.remove('active'));
+                const contenedor = document.getElementById('curso-' + curso);
+                contenedor.querySelectorAll('.materia-tab').forEach(t => t.classList.remove('active'));
                 this.classList.add('active');
-                
-                // Ocultar todas las tablas de este curso
-                contenidoCurso.querySelectorAll('.tabla-materia').forEach(tabla => {
-                    tabla.style.display = 'none';
-                });
-                
-                // Mostrar la tabla seleccionada
-                const tablaSeleccionada = document.getElementById('tabla-' + curso + '-' + materia);
-                if (tablaSeleccionada) {
-                    tablaSeleccionada.style.display = 'block';
-                }
+                contenedor.querySelectorAll('.tabla-materia').forEach(t => t.classList.remove('active'));
+                document.getElementById('tabla-' + curso + '-' + materia).classList.add('active');
             });
         });
     </script>
