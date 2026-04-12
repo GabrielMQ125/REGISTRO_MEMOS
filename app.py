@@ -143,7 +143,7 @@ def verificar_fecha_valida(ignorar_admin=False):
             elif clave == 'fecha_fin':
                 fecha_fin_str = valor
         
-        # Si es admin, ignorar la verificación de estado y fechas
+        # Si es admin, ignorar la verificación
         if not ignorar_admin:
             if not activo:
                 return False, "El sistema está desactivado"
@@ -683,7 +683,7 @@ def admin_config():
 
 @app.route('/admin/profesor/<usuario>')
 def admin_profesor_detalle(usuario):
-    """Detalle de un profesor específico"""
+    """Detalle de un profesor específico con materias marcadas por curso"""
     if not verificar_admin():
         return redirect('/admin')
     
@@ -693,7 +693,65 @@ def admin_profesor_detalle(usuario):
         if not profesor_data:
             return render_template('admin_error.html', mensaje=f"Profesor '{usuario}' no encontrado")
         
-        return render_template('admin_profesor_detalle.html', profesor=profesor_data)
+        # Obtener estudiantes para los cursos del profesor
+        estudiantes = est_sheet.get_all_records()
+        cursos_con_estudiantes = {}
+        
+        for est in estudiantes:
+            curso = str(est.get('curso', '')).strip()
+            nombre = str(est.get('nombre', '')).strip()
+            if curso and nombre and curso in profesor_data.get('cursos', []):
+                if curso not in cursos_con_estudiantes:
+                    cursos_con_estudiantes[curso] = []
+                if nombre not in cursos_con_estudiantes[curso]:
+                    cursos_con_estudiantes[curso].append(nombre)
+        
+        # Obtener materias
+        materias_data = mat_sheet.get_all_records()
+        todas_materias = {}
+        for m in materias_data:
+            try:
+                id_materia = int(float(m.get('id', 0)))
+                nombre_materia = str(m.get('nombre', '')).strip()
+                if id_materia > 0 and nombre_materia:
+                    todas_materias[id_materia] = nombre_materia
+            except:
+                pass
+        
+        # Obtener materias por curso para este profesor
+        todas_filas = prof_sheet.get_all_values()
+        profesor_dict = {}
+        if len(todas_filas) >= 2:
+            for fila in todas_filas[1:]:
+                if len(fila) > 0 and fila[0].strip().upper() == usuario.upper():
+                    encabezados = todas_filas[0]
+                    for idx, header in enumerate(encabezados):
+                        if header and idx < len(fila):
+                            profesor_dict[header] = fila[idx]
+                    break
+        
+        materias_por_curso = obtener_materias_por_curso(profesor_dict, profesor_data.get('cursos', []))
+        
+        # Obtener estados desde Sheets para este profesor
+        estados = obtener_estados_desde_sheets(usuario)
+        
+        # Construir matriz de evaluaciones por curso, alumno y materia
+        evaluaciones_detalle = {}
+        for curso, alumnos in cursos_con_estudiantes.items():
+            evaluaciones_detalle[curso] = {}
+            materias_ids = materias_por_curso.get(curso, [])
+            for alumno in alumnos:
+                evaluaciones_detalle[curso][alumno] = {}
+                for materia_id in materias_ids:
+                    key = f"{curso}_{alumno}_{materia_id}"
+                    evaluaciones_detalle[curso][alumno][materia_id] = estados.get(key, False)
+        
+        return render_template('admin_profesor_detalle.html', 
+                             profesor=profesor_data,
+                             cursos_con_estudiantes=cursos_con_estudiantes,
+                             todas_materias=todas_materias,
+                             materias_por_curso=materias_por_curso,
+                             evaluaciones_detalle=evaluaciones_detalle)
     
     except Exception as e:
         print(f"Error en admin_profesor_detalle: {e}")
