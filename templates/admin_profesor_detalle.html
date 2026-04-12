@@ -3,292 +3,564 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Detalle - {{ profesor.usuario }}</title>
+    <title>Detalle Profesor - {{ profesor.nombre_completo }}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.1/font/bootstrap-icons.css">
     <style>
-        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
-        .header { background: #667eea; color: white; padding: 15px; margin-bottom: 20px; border-radius: 10px; }
-        .card { background: white; padding: 20px; margin-bottom: 20px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-        th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
-        th { background: #667eea; color: white; }
-        .evaluado { background-color: #d4edda; color: #155724; }
-        .no-evaluado { background-color: #f8d7da; color: #721c24; }
-        .curso-tab, .materia-tab { display: inline-block; padding: 8px 20px; margin: 5px; background: #667eea; color: white; border-radius: 25px; cursor: pointer; }
-        .curso-tab.active, .materia-tab.active { background: #28a745; }
-        .curso-contenido { display: none; margin-top: 20px; }
-        .curso-contenido.active { display: block; }
-        .tabla-materia { display: none; margin-top: 20px; }
-        .tabla-materia.active { display: block; }
-        .badge { background: #e7f3ff; padding: 5px 12px; margin: 5px; display: inline-block; border-radius: 20px; }
-        .estadisticas-curso { background: #f0f0f0; padding: 10px; margin: 15px 0; border-radius: 5px; }
-        .total-marcadas { font-size: 24px; font-weight: bold; color: #28a745; }
-        .debug-info { background: #fff3cd; border: 1px solid #ffc107; padding: 10px; margin-top: 20px; border-radius: 5px; font-size: 12px; }
-        .btn-sincronizar { background: #ffc107; color: #333; padding: 8px 15px; border: none; border-radius: 5px; cursor: pointer; margin-left: 10px; }
-        .btn-sincronizar:hover { background: #e0a800; }
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        .main-container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        .header-card {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 25px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+        
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 32px;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+        
+        .stat-label {
+            font-size: 14px;
+            opacity: 0.9;
+            text-transform: uppercase;
+        }
+        
+        .curso-card {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 25px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        
+        .curso-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+        
+        .curso-title {
+            font-size: 24px;
+            font-weight: bold;
+            color: #333;
+        }
+        
+        .progress-container {
+            margin: 15px 0;
+        }
+        
+        .progress {
+            height: 30px;
+            border-radius: 15px;
+            background-color: #e9ecef;
+        }
+        
+        .progress-bar {
+            background: linear-gradient(90deg, #28a745 0%, #20c997 100%);
+            border-radius: 15px;
+            font-weight: bold;
+            line-height: 30px;
+        }
+        
+        .materia-tabs {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin: 20px 0;
+        }
+        
+        .materia-tab {
+            padding: 10px 20px;
+            background: #f8f9fa;
+            border: 2px solid #dee2e6;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: 500;
+        }
+        
+        .materia-tab:hover {
+            background: #e9ecef;
+            transform: translateY(-2px);
+        }
+        
+        .materia-tab.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-color: #667eea;
+        }
+        
+        .tabla-container {
+            margin-top: 20px;
+            overflow-x: auto;
+        }
+        
+        .table {
+            margin-bottom: 0;
+        }
+        
+        .table thead th {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px;
+            font-weight: 500;
+        }
+        
+        .table tbody tr:hover {
+            background-color: #f8f9fa;
+        }
+        
+        .estado-badge {
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        
+        .evaluado {
+            background-color: #d4edda !important;
+        }
+        
+        .no-evaluado {
+            background-color: #f8d7da !important;
+        }
+        
+        .btn-accion {
+            margin: 5px;
+            border-radius: 25px;
+            padding: 8px 20px;
+        }
+        
+        .alumno-progress {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .mini-progress {
+            width: 100px;
+            height: 8px;
+            background: #e9ecef;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        
+        .mini-progress-bar {
+            height: 100%;
+            background: #28a745;
+            transition: width 0.3s;
+        }
+        
+        .debug-panel {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            border-radius: 10px;
+            padding: 15px;
+            margin-top: 20px;
+        }
+        
+        .sincronizar-btn {
+            background: #ffc107;
+            color: #333;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 25px;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+        
+        .sincronizar-btn:hover {
+            background: #e0a800;
+            transform: translateY(-2px);
+        }
+        
+        .export-buttons {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        
+        @media (max-width: 768px) {
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .curso-header {
+                flex-direction: column;
+                align-items: start;
+                gap: 15px;
+            }
+        }
     </style>
 </head>
 <body>
-    <div class="header">
-        <h1>👨‍🏫 {{ profesor.nombre_completo }} ({{ profesor.usuario }})</h1>
-        <p>Total evaluaciones registradas: {{ profesor.total_evaluaciones }}</p>
-        <a href="/admin/panel" style="color: white;">← Volver</a> | 
-        <a href="/admin/reporte_individual/{{ profesor.usuario }}" style="color: white;">📄 PDF Completo</a>
-        <button class="btn-sincronizar" onclick="sincronizarEstados()">🔄 Sincronizar Estados</button>
-    </div>
-    
-    <div class="card">
-        <h3>Cursos Asignados</h3>
-        {% for curso in profesor.cursos %}
-            <span class="badge">{{ curso }}</span>
-        {% endfor %}
-    </div>
-    
-    <div class="card">
-        <h3>Evaluaciones por Curso y Materia</h3>
-        
-        <!-- Pestañas de cursos -->
-        <div style="margin-bottom: 20px;">
-            {% for curso, alumnos in cursos_con_estudiantes.items() %}
-                <div class="curso-tab" data-curso="{{ curso }}">{{ curso }} ({{ alumnos|length }} alumnos)</div>
-            {% endfor %}
-        </div>
-        
-        <!-- Contenido de cada curso -->
-        {% for curso, alumnos in cursos_con_estudiantes.items() %}
-        <div class="curso-contenido" id="curso-{{ curso }}">
-            <h4>📚 Curso: {{ curso }}</h4>
-            
-            <!-- Materias asignadas al curso -->
-            {% set materias_ids = materias_por_curso.get(curso, []) %}
-            
-            <!-- Estadísticas del curso -->
-            <div class="estadisticas-curso">
-                <strong>📊 Estadísticas del curso:</strong>
-                {% set total_materias_curso = materias_ids|length %}
-                {% set total_alumnos_curso = alumnos|length %}
-                {% set total_posibles = total_materias_curso * total_alumnos_curso %}
-                {% set total_marcadas_curso = 0 %}
-                {% for alumno in alumnos %}
-                    {% for materia_id in materias_ids %}
-                        {% set materia_id_str = materia_id|string %}
-                        {% set evaluado = evaluaciones_detalle.get(curso, {}).get(alumno, {}).get(materia_id_str, false) %}
-                        {% if evaluado %}
-                            {% set total_marcadas_curso = total_marcadas_curso + 1 %}
-                        {% endif %}
-                    {% endfor %}
-                {% endfor %}
-                {% if total_posibles > 0 %}
-                    {% set porcentaje = (total_marcadas_curso / total_posibles * 100)|round(1) %}
-                    <p><span class="total-marcadas">{{ total_marcadas_curso }}</span> evaluaciones realizadas de {{ total_posibles }} posibles ({{ porcentaje }}%)</p>
-                {% else %}
-                    <p>⚠️ No hay materias asignadas para este curso</p>
-                {% endif %}
+    <div class="main-container">
+        <!-- Header -->
+        <div class="header-card">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1>
+                        <i class="bi bi-person-circle"></i>
+                        {{ profesor.nombre_completo }}
+                    </h1>
+                    <p class="text-muted mb-0">
+                        <i class="bi bi-person-badge"></i> Usuario: {{ profesor.usuario }}
+                    </p>
+                </div>
+                <div class="export-buttons">
+                    <a href="/admin/reporte_individual/{{ profesor.usuario }}" class="btn btn-success btn-accion">
+                        <i class="bi bi-file-pdf"></i> PDF Individual
+                    </a>
+                    <a href="/admin/reporte_grupal" class="btn btn-primary btn-accion">
+                        <i class="bi bi-file-pdf"></i> PDF Grupal
+                    </a>
+                    <a href="/admin/panel" class="btn btn-secondary btn-accion">
+                        <i class="bi bi-arrow-left"></i> Volver
+                    </a>
+                </div>
             </div>
             
-            <!-- Pestañas de materias -->
-            {% if materias_ids|length > 0 %}
-            <div style="margin: 20px 0;">
+            <!-- Estadísticas generales -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-label">Cursos Asignados</div>
+                    <div class="stat-value">{{ profesor.cursos|length }}</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Total Evaluaciones</div>
+                    <div class="stat-value">{{ profesor.total_evaluaciones }}</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Estados Encontrados</div>
+                    <div class="stat-value">{{ total_estados_encontrados }}</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Descargas PDF</div>
+                    <div class="stat-value">{{ descargas_profesor }}</div>
+                </div>
+            </div>
+            
+            <!-- Lista de cursos -->
+            <div class="mt-4">
+                <h5>Cursos:</h5>
+                {% for curso in profesor.cursos %}
+                    <span class="badge bg-primary me-2 mb-2 p-2">{{ curso }}</span>
+                {% endfor %}
+            </div>
+        </div>
+        
+        <!-- Detalle por curso -->
+        {% for curso, alumnos in cursos_con_estudiantes.items() %}
+        <div class="curso-card">
+            <div class="curso-header">
+                <div>
+                    <h2 class="curso-title">
+                        <i class="bi bi-book"></i> {{ curso }}
+                    </h2>
+                    <p class="text-muted mb-0">
+                        <i class="bi bi-people"></i> {{ alumnos|length }} estudiantes
+                    </p>
+                </div>
+                <div style="min-width: 200px;">
+                    <div class="progress-container">
+                        {% set stats = estadisticas_curso.get(curso, {}) %}
+                        <div class="d-flex justify-content-between mb-2">
+                            <small>Progreso del curso</small>
+                            <small><strong>{{ stats.total_marcadas|default(0) }}/{{ stats.total_posibles|default(0) }}</strong> ({{ stats.porcentaje|default(0) }}%)</small>
+                        </div>
+                        <div class="progress">
+                            <div class="progress-bar" role="progressbar" 
+                                 style="width: {{ stats.porcentaje|default(0) }}%"
+                                 aria-valuenow="{{ stats.porcentaje|default(0) }}" 
+                                 aria-valuemin="0" aria-valuemax="100">
+                                {{ stats.porcentaje|default(0) }}%
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Materias del curso -->
+            {% set materias_ids = materias_por_curso.get(curso, []) %}
+            {% if materias_ids %}
+                <div class="materia-tabs" id="tabs-{{ curso|replace(' ', '_') }}">
+                    {% for materia_id in materias_ids %}
+                        {% set materia_id_str = materia_id|string %}
+                        {% if materia_id_str in todas_materias %}
+                            <div class="materia-tab" 
+                                 data-curso="{{ curso }}" 
+                                 data-materia="{{ materia_id }}"
+                                 onclick="mostrarMateria('{{ curso }}', {{ materia_id }})">
+                                <i class="bi bi-journal-check"></i> 
+                                {{ todas_materias[materia_id_str] }}
+                            </div>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+                
+                <!-- Tablas por materia -->
                 {% for materia_id in materias_ids %}
                     {% set materia_id_str = materia_id|string %}
                     {% if materia_id_str in todas_materias %}
-                        <div class="materia-tab" data-curso="{{ curso }}" data-materia="{{ materia_id }}">
-                            {{ todas_materias[materia_id_str] }}
+                        <div class="tabla-container" 
+                             id="tabla-{{ curso|replace(' ', '_') }}-{{ materia_id }}" 
+                             style="display: none;">
+                            <h5 class="mb-3">
+                                <i class="bi bi-table"></i> 
+                                {{ todas_materias[materia_id_str] }}
+                            </h5>
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th width="50">#</th>
+                                        <th>Estudiante</th>
+                                        <th width="150">Estado</th>
+                                        <th width="200">Progreso General</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for alumno in alumnos %}
+                                        {% set evaluado = evaluaciones_detalle.get(curso, {}).get(alumno, {}).get(materia_id_str, false) %}
+                                        {% set materias_alumno = estadisticas_curso[curso].materias_marcadas_por_alumno.get(alumno, 0) %}
+                                        {% set total_materias = materias_ids|length %}
+                                        {% set porcentaje_alumno = (materias_alumno / total_materias * 100)|round(1) if total_materias > 0 else 0 %}
+                                        
+                                        <tr class="{% if evaluado %}evaluado{% else %}no-evaluado{% endif %}">
+                                            <td>{{ loop.index }}</td>
+                                            <td>
+                                                <strong>{{ alumno }}</strong>
+                                            </td>
+                                            <td>
+                                                {% if evaluado %}
+                                                    <span class="badge bg-success estado-badge">
+                                                        <i class="bi bi-check-circle"></i> EVALUADO
+                                                    </span>
+                                                {% else %}
+                                                    <span class="badge bg-danger estado-badge">
+                                                        <i class="bi bi-x-circle"></i> PENDIENTE
+                                                    </span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                <div class="alumno-progress">
+                                                    <div class="mini-progress">
+                                                        <div class="mini-progress-bar" 
+                                                             style="width: {{ porcentaje_alumno }}%"></div>
+                                                    </div>
+                                                    <small>{{ materias_alumno }}/{{ total_materias }}</small>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
                         </div>
                     {% endif %}
                 {% endfor %}
-            </div>
-            
-            <!-- Tablas de cada materia -->
-            {% for materia_id in materias_ids %}
-                {% set materia_id_str = materia_id|string %}
-                {% if materia_id_str in todas_materias %}
-                <div class="tabla-materia" id="tabla-{{ curso }}-{{ materia_id }}">
-                    <h5>📋 {{ todas_materias[materia_id_str] }}</h5>
-                    <table>
-                        <thead>
-                            <tr>
-                                <th width="50">#</th>
-                                <th>Alumno</th>
-                                <th width="150">Estado</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for alumno in alumnos %}
-                                {% set evaluado = evaluaciones_detalle.get(curso, {}).get(alumno, {}).get(materia_id_str, false) %}
-                                <tr class="{% if evaluado %}evaluado{% else %}no-evaluado{% endif %}">
-                                    <td>{{ loop.index }}</td>
-                                    <td>{{ alumno }}</td>
-                                    <td>
-                                        {% if evaluado %}
-                                            ✅ EVALUADO
-                                        {% else %}
-                                            ❌ NO EVALUADO
-                                        {% endif %}
-                                    </td>
-                                </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-                {% endif %}
-            {% endfor %}
             {% else %}
-            <div class="alert alert-warning">
-                ⚠️ No hay materias asignadas para este curso en la configuración del profesor.
-            </div>
+                <div class="alert alert-warning">
+                    <i class="bi bi-exclamation-triangle"></i>
+                    No hay materias asignadas para este curso
+                </div>
             {% endif %}
         </div>
         {% endfor %}
-    </div>
-    
-    <div class="card debug-info" id="debug-info" style="display: none;">
-        <h4>Información de Depuración</h4>
-        <pre id="debug-content"></pre>
-    </div>
-    
-    <script>
-        // Variables para almacenar datos
-        let evaluacionesData = {{ evaluaciones_detalle|tojson }};
         
-        // Mostrar información de depuración
-        function mostrarDebug() {
-            const debugDiv = document.getElementById('debug-info');
-            const debugContent = document.getElementById('debug-content');
+        <!-- Panel de depuración (oculto por defecto) -->
+        <div class="debug-panel" id="debugPanel" style="display: none;">
+            <h5><i class="bi bi-bug"></i> Información de Depuración</h5>
+            <button class="btn btn-sm btn-warning mb-2" onclick="sincronizarEstados()">
+                <i class="bi bi-arrow-repeat"></i> Sincronizar Estados
+            </button>
+            <pre id="debugContent" style="background: #f8f9fa; padding: 10px; border-radius: 5px; max-height: 300px; overflow: auto;"></pre>
+        </div>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Datos desde el servidor
+        const evaluacionesData = {{ evaluaciones_detalle|tojson }};
+        const estadisticasCurso = {{ estadisticas_curso|tojson }};
+        const profesorUsuario = '{{ profesor.usuario }}';
+        
+        // Estado actual
+        let cursoActual = null;
+        let materiaActual = null;
+        
+        // Función para mostrar una materia específica
+        function mostrarMateria(curso, materiaId) {
+            // Ocultar todas las tablas del curso
+            const cursoId = curso.replace(/ /g, '_');
+            const tablas = document.querySelectorAll(`[id^="tabla-${cursoId}-"]`);
+            tablas.forEach(tabla => tabla.style.display = 'none');
             
-            // Contar total de evaluaciones
-            let totalEvaluaciones = 0;
-            for (let curso in evaluacionesData) {
-                for (let alumno in evaluacionesData[curso]) {
-                    for (let materia in evaluacionesData[curso][alumno]) {
-                        if (evaluacionesData[curso][alumno][materia]) {
-                            totalEvaluaciones++;
-                        }
-                    }
-                }
+            // Mostrar la tabla seleccionada
+            const tablaSeleccionada = document.getElementById(`tabla-${cursoId}-${materiaId}`);
+            if (tablaSeleccionada) {
+                tablaSeleccionada.style.display = 'block';
             }
             
-            debugContent.textContent = JSON.stringify({
-                cursos_disponibles: Object.keys(evaluacionesData),
-                total_evaluaciones_marcadas: totalEvaluaciones,
-                muestra: evaluacionesData
-            }, null, 2);
+            // Actualizar tabs activos
+            const tabs = document.querySelectorAll(`#tabs-${cursoId} .materia-tab`);
+            tabs.forEach(tab => tab.classList.remove('active'));
             
-            debugDiv.style.display = 'block';
+            const tabActivo = Array.from(tabs).find(tab => 
+                tab.getAttribute('data-materia') == materiaId
+            );
+            if (tabActivo) {
+                tabActivo.classList.add('active');
+            }
+            
+            cursoActual = curso;
+            materiaActual = materiaId;
         }
         
-        // Sincronizar estados
+        // Función para inicializar la primera materia de cada curso
+        function inicializarVistas() {
+            const cursos = document.querySelectorAll('.curso-card');
+            cursos.forEach((cursoCard, index) => {
+                const primerTab = cursoCard.querySelector('.materia-tab');
+                if (primerTab) {
+                    const curso = primerTab.getAttribute('data-curso');
+                    const materia = primerTab.getAttribute('data-materia');
+                    mostrarMateria(curso, materia);
+                }
+            });
+        }
+        
+        // Función para sincronizar estados
         async function sincronizarEstados() {
-            const btn = document.querySelector('.btn-sincronizar');
-            const textoOriginal = btn.textContent;
-            btn.textContent = '🔄 Sincronizando...';
+            const btn = event.target;
+            const textoOriginal = btn.innerHTML;
+            btn.innerHTML = '<i class="bi bi-arrow-repeat spin"></i> Sincronizando...';
             btn.disabled = true;
             
             try {
-                const response = await fetch('/admin/sincronizar/{{ profesor.usuario }}');
+                const response = await fetch(`/admin/ver_estados/${profesorUsuario}`);
                 const data = await response.json();
                 
-                if (data.success) {
-                    alert(`✅ Sincronización completada!\nSe encontraron ${data.total_estados} estados para este profesor.\nRecarga la página para ver los cambios.`);
+                if (data.total_estados_encontrados !== undefined) {
+                    alert(`✅ Sincronización exitosa!\n` +
+                          `Se encontraron ${data.total_estados_encontrados} estados.\n` +
+                          `La página se recargará para mostrar los cambios.`);
                     location.reload();
                 } else {
-                    alert(`❌ Error: ${data.error}`);
+                    alert(`❌ Error al sincronizar: ${data.error || 'Error desconocido'}`);
                 }
             } catch (error) {
-                alert(`❌ Error al sincronizar: ${error.message}`);
+                alert(`❌ Error: ${error.message}`);
             } finally {
-                btn.textContent = textoOriginal;
+                btn.innerHTML = textoOriginal;
                 btn.disabled = false;
             }
         }
         
-        // Inicializar: mostrar primer curso y primera materia
-        function inicializar() {
-            const cursosTabs = document.querySelectorAll('.curso-tab');
-            if (cursosTabs.length > 0) {
-                // Activar primer curso
-                cursosTabs[0].classList.add('active');
-                const primerCurso = cursosTabs[0].getAttribute('data-curso');
-                const primerCursoContenido = document.getElementById('curso-' + primerCurso);
-                if (primerCursoContenido) {
-                    primerCursoContenido.classList.add('active');
-                    
-                    // Activar primera materia de ese curso
-                    const materiasTabs = primerCursoContenido.querySelectorAll('.materia-tab');
-                    if (materiasTabs.length > 0) {
-                        materiasTabs[0].classList.add('active');
-                        const curso = materiasTabs[0].getAttribute('data-curso');
-                        const materia = materiasTabs[0].getAttribute('data-materia');
-                        const primeraTabla = document.getElementById('tabla-' + curso + '-' + materia);
-                        if (primeraTabla) {
-                            primeraTabla.classList.add('active');
-                        }
-                    }
+        // Función para mostrar/ocultar panel de depuración
+        function toggleDebugPanel() {
+            const panel = document.getElementById('debugPanel');
+            const content = document.getElementById('debugContent');
+            
+            if (panel.style.display === 'none') {
+                // Preparar datos de depuración
+                const debugInfo = {
+                    profesor: profesorUsuario,
+                    total_cursos: Object.keys(evaluacionesData).length,
+                    cursos: Object.keys(evaluacionesData),
+                    estadisticas: estadisticasCurso,
+                    muestra_evaluaciones: {}
+                };
+                
+                // Agregar muestra de evaluaciones (primeros 5 alumnos del primer curso)
+                const primerCurso = Object.keys(evaluacionesData)[0];
+                if (primerCurso) {
+                    const alumnos = Object.keys(evaluacionesData[primerCurso]).slice(0, 5);
+                    alumnos.forEach(alumno => {
+                        debugInfo.muestra_evaluaciones[alumno] = evaluacionesData[primerCurso][alumno];
+                    });
                 }
+                
+                content.textContent = JSON.stringify(debugInfo, null, 2);
+                panel.style.display = 'block';
+            } else {
+                panel.style.display = 'none';
             }
         }
         
-        // Cambiar curso
-        document.querySelectorAll('.curso-tab').forEach(tab => {
-            tab.addEventListener('click', function() {
-                const curso = this.getAttribute('data-curso');
-                
-                // Actualizar tabs de cursos
-                document.querySelectorAll('.curso-tab').forEach(t => t.classList.remove('active'));
-                this.classList.add('active');
-                
-                // Actualizar contenido de cursos
-                document.querySelectorAll('.curso-contenido').forEach(c => c.classList.remove('active'));
-                const cursoActivo = document.getElementById('curso-' + curso);
-                cursoActivo.classList.add('active');
-                
-                // Resetear materias activas de este curso
-                cursoActivo.querySelectorAll('.tabla-materia').forEach(t => t.classList.remove('active'));
-                const materiasTabs = cursoActivo.querySelectorAll('.materia-tab');
-                materiasTabs.forEach(t => t.classList.remove('active'));
-                
-                // Activar primera materia del curso
-                if (materiasTabs.length > 0) {
-                    materiasTabs[0].classList.add('active');
-                    const materiaCurso = materiasTabs[0].getAttribute('data-curso');
-                    const materiaId = materiasTabs[0].getAttribute('data-materia');
-                    const primeraTabla = document.getElementById('tabla-' + materiaCurso + '-' + materiaId);
-                    if (primeraTabla) {
-                        primeraTabla.classList.add('active');
-                    }
-                }
-            });
-        });
-        
-        // Cambiar materia
-        document.querySelectorAll('.materia-tab').forEach(tab => {
-            tab.addEventListener('click', function() {
-                const curso = this.getAttribute('data-curso');
-                const materia = this.getAttribute('data-materia');
-                const contenedor = document.getElementById('curso-' + curso);
-                
-                if (contenedor) {
-                    // Actualizar tabs de materias dentro del curso
-                    contenedor.querySelectorAll('.materia-tab').forEach(t => t.classList.remove('active'));
-                    this.classList.add('active');
-                    
-                    // Actualizar tablas de materias dentro del curso
-                    contenedor.querySelectorAll('.tabla-materia').forEach(t => t.classList.remove('active'));
-                    const tablaActiva = document.getElementById('tabla-' + curso + '-' + materia);
-                    if (tablaActiva) {
-                        tablaActiva.classList.add('active');
-                    }
-                }
-            });
-        });
-        
-        // Ejecutar inicialización cuando la página cargue
-        document.addEventListener('DOMContentLoaded', inicializar);
-        
-        // Presiona Ctrl+Shift+D para mostrar debug
+        // Atajo de teclado: Ctrl+Shift+D para mostrar panel de depuración
         document.addEventListener('keydown', function(e) {
             if (e.ctrlKey && e.shiftKey && e.key === 'D') {
-                mostrarDebug();
+                e.preventDefault();
+                toggleDebugPanel();
             }
+        });
+        
+        // Agregar animación de carga
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes spin {
+                from { transform: rotate(0deg); }
+                to { transform: rotate(360deg); }
+            }
+            .spin {
+                animation: spin 1s linear infinite;
+                display: inline-block;
+            }
+        `;
+        document.head.appendChild(style);
+        
+        // Inicializar cuando la página cargue
+        document.addEventListener('DOMContentLoaded', function() {
+            inicializarVistas();
+            
+            // Agregar tooltips de Bootstrap
+            const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+            tooltipTriggerList.map(function (tooltipTriggerEl) {
+                return new bootstrap.Tooltip(tooltipTriggerEl);
+            });
+        });
+        
+        // Hacer visible el panel de depuración si hay un error
+        window.addEventListener('error', function() {
+            console.log('Error detectado - Mostrando panel de depuración');
+            setTimeout(() => {
+                const panel = document.getElementById('debugPanel');
+                if (panel && panel.style.display === 'none') {
+                    toggleDebugPanel();
+                }
+            }, 100);
         });
     </script>
 </body>
