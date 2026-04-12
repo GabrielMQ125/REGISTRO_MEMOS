@@ -71,7 +71,6 @@
                         <thead><tr><th>#</th><th>Alumno</th><th>Estado</th></tr></thead>
                         <tbody>
                             {% for alumno in alumnos %}
-                                {% set key = curso ~ "_" ~ alumno ~ "_" ~ materia_id %}
                                 {% set evaluado = evaluaciones_detalle.get(curso, {}).get(alumno, {}).get(materia_id, false) %}
                             <tr>
                                 <td>{{ loop.index }}</td>
