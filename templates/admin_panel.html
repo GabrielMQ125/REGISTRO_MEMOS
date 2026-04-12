@@ -5,281 +5,48 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
     <title>Panel de Administración</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: #f5f5f5;
-        }
-        
-        .header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 15px 0;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            position: sticky;
-            top: 0;
-            z-index: 100;
-        }
-        
-        .header-content {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 0 15px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: 10px;
-        }
-        
-        .header h1 {
-            font-size: 1.2rem;
-        }
-        
-        .nav {
-            display: flex;
-            gap: 10px;
-            flex-wrap: wrap;
-        }
-        
-        .nav a {
-            color: white;
-            text-decoration: none;
-            padding: 6px 12px;
-            border-radius: 5px;
-            transition: background 0.3s;
-            font-size: 0.9rem;
-        }
-        
-        .nav a:hover {
-            background: rgba(255,255,255,0.2);
-        }
-        
-        .container {
-            max-width: 1200px;
-            margin: 20px auto;
-            padding: 0 15px;
-        }
-        
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
-            margin-bottom: 25px;
-        }
-        
-        .stat-card {
-            background: white;
-            border-radius: 10px;
-            padding: 15px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            text-align: center;
-        }
-        
-        .stat-number {
-            font-size: 1.8rem;
-            font-weight: bold;
-            color: #667eea;
-            margin-bottom: 5px;
-        }
-        
-        .stat-label {
-            color: #666;
-            font-size: 0.8rem;
-        }
-        
-        .section {
-            background: white;
-            border-radius: 10px;
-            padding: 15px;
-            margin-bottom: 25px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            overflow-x: auto;
-        }
-        
-        .section-title {
-            font-size: 1.2rem;
-            margin-bottom: 15px;
-            color: #333;
-            border-bottom: 2px solid #667eea;
-            padding-bottom: 8px;
-        }
-        
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            min-width: 600px;
-        }
-        
-        th, td {
-            padding: 10px 8px;
-            text-align: left;
-            border-bottom: 1px solid #ddd;
-            font-size: 0.85rem;
-        }
-        
-        th {
-            background: #f8f9fa;
-            font-weight: 600;
-            color: #333;
-        }
-        
-        tr:hover {
-            background: #f8f9fa;
-        }
-        
-        .btn {
-            display: inline-block;
-            padding: 5px 10px;
-            background: #667eea;
-            color: white;
-            text-decoration: none;
-            border-radius: 5px;
-            font-size: 0.75rem;
-            transition: background 0.3s;
-            margin: 2px;
-            white-space: nowrap;
-        }
-        
-        .btn:hover {
-            background: #5a67d8;
-        }
-        
-        .btn-success {
-            background: #28a745;
-        }
-        
-        .btn-success:hover {
-            background: #218838;
-        }
-        
-        .btn-info {
-            background: #17a2b8;
-        }
-        
-        .btn-info:hover {
-            background: #138496;
-        }
-        
-        .badge {
-            display: inline-block;
-            padding: 3px 8px;
-            border-radius: 4px;
-            font-size: 0.7rem;
-            font-weight: 600;
-        }
-        
-        .badge-success {
-            background: #d4edda;
-            color: #155724;
-        }
-        
-        .badge-warning {
-            background: #fff3cd;
-            color: #856404;
-        }
-        
-        .config-status {
-            margin-top: 10px;
-            padding: 10px;
-            background: #e7f3ff;
-            border-radius: 5px;
-            font-size: 0.85rem;
-        }
-        
-        .cursos-list {
-            font-size: 0.75rem;
-            color: #666;
-        }
-        
-        .cursos-list span {
-            display: inline-block;
-            background: #e7f3ff;
-            padding: 2px 6px;
-            border-radius: 3px;
-            margin: 2px;
-            font-size: 0.7rem;
-        }
-        
-        .action-buttons {
-            white-space: nowrap;
-        }
-        
-        .header-actions {
-            margin-bottom: 15px;
-            text-align: right;
-        }
-        
-        .btn-large {
-            padding: 8px 15px;
-            font-size: 0.85rem;
-        }
-        
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f5f5f5; }
+        .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px 0; position: sticky; top: 0; z-index: 100; }
+        .header-content { max-width: 1200px; margin: 0 auto; padding: 0 15px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
+        .header h1 { font-size: 1.2rem; }
+        .nav { display: flex; gap: 10px; flex-wrap: wrap; }
+        .nav a { color: white; text-decoration: none; padding: 6px 12px; border-radius: 5px; font-size: 0.9rem; }
+        .nav a:hover { background: rgba(255,255,255,0.2); }
+        .container { max-width: 1200px; margin: 20px auto; padding: 0 15px; }
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 25px; }
+        .stat-card { background: white; border-radius: 10px; padding: 15px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); text-align: center; }
+        .stat-number { font-size: 1.8rem; font-weight: bold; color: #667eea; margin-bottom: 5px; }
+        .stat-label { color: #666; font-size: 0.8rem; }
+        .section { background: white; border-radius: 10px; padding: 15px; margin-bottom: 25px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); overflow-x: auto; }
+        .section-title { font-size: 1.2rem; margin-bottom: 15px; color: #333; border-bottom: 2px solid #667eea; padding-bottom: 8px; }
+        table { width: 100%; border-collapse: collapse; min-width: 600px; }
+        th, td { padding: 10px 8px; text-align: left; border-bottom: 1px solid #ddd; font-size: 0.85rem; }
+        th { background: #f8f9fa; font-weight: 600; color: #333; }
+        tr:hover { background: #f8f9fa; }
+        .btn { display: inline-block; padding: 5px 10px; background: #667eea; color: white; text-decoration: none; border-radius: 5px; font-size: 0.75rem; margin: 2px; white-space: nowrap; }
+        .btn:hover { background: #5a67d8; }
+        .btn-success { background: #28a745; }
+        .btn-success:hover { background: #218838; }
+        .btn-info { background: #17a2b8; }
+        .btn-info:hover { background: #138496; }
+        .badge-success { background: #d4edda; color: #155724; display: inline-block; padding: 3px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: 600; }
+        .badge-warning { background: #fff3cd; color: #856404; display: inline-block; padding: 3px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: 600; }
+        .config-status { margin-top: 10px; padding: 10px; background: #e7f3ff; border-radius: 5px; font-size: 0.85rem; }
+        .cursos-list span { display: inline-block; background: #e7f3ff; padding: 2px 6px; border-radius: 3px; margin: 2px; font-size: 0.7rem; }
+        .action-buttons { white-space: nowrap; }
+        .header-actions { margin-bottom: 15px; text-align: right; }
+        .btn-large { padding: 8px 15px; font-size: 0.85rem; }
         @media (max-width: 768px) {
-            .header-content {
-                flex-direction: column;
-                text-align: center;
-            }
-            
-            .header h1 {
-                font-size: 1rem;
-            }
-            
-            .nav {
-                justify-content: center;
-            }
-            
-            .nav a {
-                padding: 5px 10px;
-                font-size: 0.8rem;
-            }
-            
-            .stat-number {
-                font-size: 1.5rem;
-            }
-            
-            .section-title {
-                font-size: 1rem;
-            }
-            
-            th, td {
-                padding: 8px 5px;
-                font-size: 0.75rem;
-            }
-            
-            .btn {
-                padding: 4px 8px;
-                font-size: 0.7rem;
-            }
-            
-            .cursos-list span {
-                font-size: 0.65rem;
-                padding: 1px 4px;
-            }
+            .header-content { flex-direction: column; text-align: center; }
+            .header h1 { font-size: 1rem; }
+            .nav { justify-content: center; }
+            .stat-number { font-size: 1.5rem; }
+            th, td { padding: 8px 5px; font-size: 0.75rem; }
         }
-        
         @media (max-width: 480px) {
-            .stats-grid {
-                grid-template-columns: repeat(2, 1fr);
-                gap: 10px;
-            }
-            
-            .stat-card {
-                padding: 10px;
-            }
-            
-            .stat-number {
-                font-size: 1.3rem;
-            }
-            
-            .stat-label {
-                font-size: 0.7rem;
-            }
+            .stats-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+            .stat-number { font-size: 1.3rem; }
         }
     </style>
 </head>
@@ -298,86 +65,47 @@
     
     <div class="container">
         <div class="stats-grid">
-            <div class="stat-card">
-                <div class="stat-number">{{ total_profesores }}</div>
-                <div class="stat-label">Profesores Registrados</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-number">{{ total_evaluaciones }}</div>
-                <div class="stat-label">Evaluaciones Realizadas</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-number">{{ total_marcadas }}</div>
-                <div class="stat-label">Materias Marcadas</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-number">
-                    {% if config.activo %}
-                    <span style="color: #28a745;">✓ Activo</span>
-                    {% else %}
-                    <span style="color: #dc3545;">✗ Inactivo</span>
-                    {% endif %}
-                </div>
-                <div class="stat-label">Estado del Sistema</div>
-            </div>
+            <div class="stat-card"><div class="stat-number">{{ total_profesores }}</div><div class="stat-label">Profesores</div></div>
+            <div class="stat-card"><div class="stat-number">{{ total_evaluaciones }}</div><div class="stat-label">Evaluaciones</div></div>
+            <div class="stat-card"><div class="stat-number">{{ total_marcadas }}</div><div class="stat-label">Materias Marcadas</div></div>
+            <div class="stat-card"><div class="stat-number">{% if config.activo %}✓ Activo{% else %}✗ Inactivo{% endif %}</div><div class="stat-label">Estado</div></div>
         </div>
         
         <div class="section">
             <div class="header-actions">
-                <a href="/admin/reporte_grupal" class="btn btn-success btn-large">📄 Descargar Reporte Grupal</a>
+                <a href="/admin/reporte_grupal" class="btn btn-success btn-large">📄 Reporte Grupal</a>
             </div>
-            <h2 class="section-title">👨‍🏫 Lista de Profesores</h2>
-            <div style="overflow-x: auto;">
-                {% if profesores %}
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Usuario</th>
-                            <th>Nombre</th>
-                            <th>Cursos</th>
-                            <th>Descargas</th>
-                            <th>Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for profesor in profesores %}
-                        <tr>
-                            <td><strong>{{ profesor.usuario }}</strong></td>
-                            <td>{{ profesor.nombre_completo }}</td>
-                            <td class="cursos-list">
-                                {% for curso in profesor.cursos %}
-                                <span>{{ curso }}</span>
-                                {% endfor %}
-                            </td>
-                            <td>{{ profesor.descargas }}</td>
-                            <td class="action-buttons">
-                                <a href="/admin/profesor/{{ profesor.usuario }}" class="btn btn-info">Ver</a>
-                                <a href="/admin/reporte_individual/{{ profesor.usuario }}" class="btn">PDF</a>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-                {% else %}
-                <p>No hay profesores registrados.</p>
-                {% endif %}
-            </div>
+            <h2 class="section-title">👨‍🏫 Profesores</h2>
+            {% if profesores %}
+            <table>
+                <thead><tr><th>Usuario</th><th>Nombre</th><th>Cursos</th><th>Descargas</th><th>Acciones</th></tr></thead>
+                <tbody>
+                    {% for profesor in profesores %}
+                    <tr>
+                        <td><strong>{{ profesor.usuario }}</strong></td>
+                        <td>{{ profesor.nombre_completo }}</td>
+                        <td class="cursos-list">{% for curso in profesor.cursos %}<span>{{ curso }}</span>{% endfor %}</td>
+                        <td>{{ profesor.descargas }}</td>
+                        <td class="action-buttons">
+                            <a href="/admin/profesor/{{ profesor.usuario }}" class="btn btn-info">Ver</a>
+                            <a href="/admin/reporte_individual/{{ profesor.usuario }}" class="btn">PDF</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p>No hay profesores registrados.</p>
+            {% endif %}
         </div>
         
         <div class="section">
-            <h2 class="section-title">⚙️ Configuración Actual</h2>
+            <h2 class="section-title">⚙️ Configuración</h2>
             <div class="config-status">
-                <strong>Estado:</strong> 
-                {% if config.activo %}
-                <span class="badge badge-success">Sistema Activo</span>
-                {% else %}
-                <span class="badge badge-warning">Sistema Inactivo</span>
-                {% endif %}
-                <br>
-                <strong>Fecha Inicio:</strong> {{ config.fecha_inicio if config.fecha_inicio else 'No definida' }}<br>
-                <strong>Fecha Fin:</strong> {{ config.fecha_fin if config.fecha_fin else 'No definida' }}<br>
-                <br>
-                <a href="/admin/config" class="btn">Modificar Configuración</a>
+                <strong>Estado:</strong> {% if config.activo %}<span class="badge-success">Activo</span>{% else %}<span class="badge-warning">Inactivo</span>{% endif %}<br>
+                <strong>Inicio:</strong> {{ config.fecha_inicio if config.fecha_inicio else 'No definida' }}<br>
+                <strong>Fin:</strong> {{ config.fecha_fin if config.fecha_fin else 'No definida' }}<br><br>
+                <a href="/admin/config" class="btn">Configurar</a>
             </div>
         </div>
     </div>
