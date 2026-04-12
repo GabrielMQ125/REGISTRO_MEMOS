@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
     <title>Detalle del Profesor - {{ profesor.usuario }}</title>
     <style>
         * {
@@ -19,23 +19,30 @@
         .header {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
-            padding: 20px 0;
+            padding: 15px 0;
         }
         
         .header-content {
             max-width: 1200px;
             margin: 0 auto;
-            padding: 0 20px;
+            padding: 0 15px;
             display: flex;
             justify-content: space-between;
             align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        
+        .header h1 {
+            font-size: 1.2rem;
         }
         
         .nav a {
             color: white;
             text-decoration: none;
-            padding: 8px 16px;
+            padding: 6px 12px;
             border-radius: 5px;
+            font-size: 0.85rem;
         }
         
         .nav a:hover {
@@ -44,53 +51,59 @@
         
         .container {
             max-width: 1200px;
-            margin: 30px auto;
-            padding: 0 20px;
+            margin: 20px auto;
+            padding: 0 15px;
         }
         
         .card {
             background: white;
             border-radius: 10px;
-            padding: 25px;
+            padding: 20px;
             margin-bottom: 20px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         }
         
         .info-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 20px;
-            margin-bottom: 20px;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin-bottom: 15px;
         }
         
         .info-item {
-            padding: 10px;
+            padding: 8px;
             border-left: 3px solid #667eea;
         }
         
         .info-label {
             font-weight: 600;
             color: #666;
-            font-size: 12px;
+            font-size: 0.7rem;
             text-transform: uppercase;
             margin-bottom: 5px;
         }
         
         .info-value {
-            font-size: 16px;
+            font-size: 0.9rem;
             color: #333;
+            word-break: break-word;
+        }
+        
+        .table-container {
+            overflow-x: auto;
         }
         
         table {
             width: 100%;
             border-collapse: collapse;
-            margin-top: 15px;
+            min-width: 500px;
         }
         
         th, td {
-            padding: 12px;
+            padding: 10px 8px;
             text-align: left;
             border-bottom: 1px solid #ddd;
+            font-size: 0.85rem;
         }
         
         th {
@@ -100,13 +113,14 @@
         
         .btn {
             display: inline-block;
-            padding: 10px 20px;
+            padding: 8px 15px;
             background: #667eea;
             color: white;
             text-decoration: none;
             border-radius: 5px;
             margin-top: 15px;
             margin-right: 10px;
+            font-size: 0.85rem;
         }
         
         .btn:hover {
@@ -123,9 +137,9 @@
         
         .badge {
             display: inline-block;
-            padding: 4px 8px;
+            padding: 3px 8px;
             border-radius: 4px;
-            font-size: 12px;
+            font-size: 0.7rem;
             font-weight: 600;
         }
         
@@ -137,9 +151,42 @@
         .cursos-container span {
             display: inline-block;
             background: #e7f3ff;
-            padding: 4px 10px;
+            padding: 3px 8px;
             border-radius: 5px;
             margin: 3px;
+            font-size: 0.8rem;
+        }
+        
+        @media (max-width: 768px) {
+            .header-content {
+                flex-direction: column;
+                text-align: center;
+            }
+            
+            .info-grid {
+                grid-template-columns: 1fr;
+                gap: 10px;
+            }
+            
+            th, td {
+                padding: 8px 5px;
+                font-size: 0.75rem;
+            }
+            
+            .btn {
+                padding: 6px 12px;
+                font-size: 0.75rem;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .card {
+                padding: 15px;
+            }
+            
+            .info-value {
+                font-size: 0.85rem;
+            }
         }
     </style>
 </head>
@@ -202,31 +249,33 @@
         </div>
         
         <div class="card">
-            <h3>📝 Evaluaciones Realizadas</h3>
-            {% if profesor.evaluaciones %}
-            <table>
-                <thead>
-                    <tr>
-                        <th>Curso</th>
-                        <th>Alumno</th>
-                        <th>Total Materias Marcadas</th>
-                        <th>Fecha</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for eval in profesor.evaluaciones %}
-                    <tr>
-                        <td>{{ eval.curso }}</td>
-                        <td>{{ eval.alumno }}</td>
-                        <td>{{ eval.total_materias }}</td>
-                        <td>{{ eval.fecha if eval.fecha else 'No registrada' }}</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-            {% else %}
-            <p>No hay evaluaciones registradas para este profesor.</p>
-            {% endif %}
+            <h3 style="margin-bottom: 15px; font-size: 1.1rem;">📝 Evaluaciones Realizadas</h3>
+            <div class="table-container">
+                {% if profesor.evaluaciones %}
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Curso</th>
+                            <th>Alumno</th>
+                            <th>Total Materias Marcadas</th>
+                            <th>Fecha</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for eval in profesor.evaluaciones %}
+                        <tr>
+                            <td>{{ eval.curso }}</td>
+                            <td>{{ eval.alumno }}</td>
+                            <td>{{ eval.total_materias }}</td>
+                            <td>{{ eval.fecha if eval.fecha else 'No registrada' }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <p>No hay evaluaciones registradas para este profesor.</p>
+                {% endif %}
+            </div>
         </div>
     </div>
 </body>
