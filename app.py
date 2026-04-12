@@ -40,9 +40,14 @@ def obtener_estados_desde_sheets(profesor):
         todas_respuestas = resp_sheet.get_all_records()
         estados = {}
         
+        print(f"🔍 Buscando estados para profesor: '{profesor}'")
+        
         for respuesta in todas_respuestas:
             profesor_resp = respuesta.get('profesor', '')
-            if profesor_resp and normalizar_texto(profesor_resp) == normalizar_texto(profesor):
+            profesor_resp_norm = normalizar_texto(profesor_resp)
+            profesor_norm = normalizar_texto(profesor)
+            
+            if profesor_resp_norm == profesor_norm:
                 curso = respuesta.get('curso', '')
                 alumno = respuesta.get('alumno', '')
                 
@@ -53,12 +58,16 @@ def obtener_estados_desde_sheets(profesor):
                         valor_bool = convertir_a_booleano(valor)
                         key = f"{curso}_{alumno}_{i}"
                         estados[key] = valor_bool
+                        if valor_bool:
+                            print(f"   ✅ Marcada: {curso} - {alumno} - M{i}")
         
         print(f"📥 Desde Sheets: {len(estados)} estados encontrados para {profesor}")
         return estados
     except Exception as e:
         print(f"❌ Error obteniendo estados desde Sheets: {e}")
+        traceback.print_exc()
         return {}
+
 # ====================================================================
 
 try:
@@ -125,7 +134,6 @@ def convertir_a_booleano(valor):
 def booleano_a_texto(valor):
     return "TRUE" if valor else "FALSE"
 
-# ==================== CAMBIO 1: Agregar parámetro ignorar_admin ====================
 def verificar_fecha_valida(ignorar_admin=False):
     """Verifica si el sistema está activo (ignorar_admin=True para rutas de admin)"""
     try:
@@ -144,7 +152,6 @@ def verificar_fecha_valida(ignorar_admin=False):
             elif clave == 'fecha_fin':
                 fecha_fin_str = valor
         
-        # Si es admin, ignorar la verificación
         if not ignorar_admin:
             if not activo:
                 return False, "El sistema está desactivado"
@@ -560,7 +567,6 @@ def obtener_datos_profesor(profesor_usuario):
 @app.route('/admin', methods=['GET', 'POST'])
 def admin_login():
     """Login para administradores (solo contraseña)"""
-    # CAMBIO 2: ignorar_admin=True
     valido, mensaje = verificar_fecha_valida(ignorar_admin=True)
     if not valido:
         return render_template('expirado.html', mensaje=mensaje)
@@ -583,7 +589,6 @@ def admin_panel():
     if not verificar_admin():
         return redirect('/admin')
     
-    # CAMBIO 2: ignorar_admin=True
     valido, mensaje = verificar_fecha_valida(ignorar_admin=True)
     if not valido:
         return render_template('expirado.html', mensaje=mensaje)
@@ -627,7 +632,6 @@ def admin_config():
     if not verificar_admin():
         return redirect('/admin')
     
-    # CAMBIO 2: ignorar_admin=True
     valido, mensaje = verificar_fecha_valida(ignorar_admin=True)
     if not valido:
         return render_template('expirado.html', mensaje=mensaje)
@@ -718,7 +722,7 @@ def admin_profesor_detalle(usuario):
                 id_materia = int(float(m.get('id', 0)))
                 nombre_materia = str(m.get('nombre', '')).strip()
                 if id_materia > 0 and nombre_materia:
-                    todas_materias[id_materia] = nombre_materia
+                    todas_materias[str(id_materia)] = nombre_materia
             except:
                 pass
         
@@ -748,7 +752,7 @@ def admin_profesor_detalle(usuario):
                 evaluaciones_detalle[curso][alumno] = {}
                 for materia_id in materias_ids:
                     key = f"{curso}_{alumno}_{materia_id}"
-                    evaluaciones_detalle[curso][alumno][materia_id] = estados.get(key, False)
+                    evaluaciones_detalle[curso][alumno][str(materia_id)] = estados.get(key, False)
         
         return render_template('admin_profesor_detalle.html', 
                              profesor=profesor_data,
@@ -759,6 +763,7 @@ def admin_profesor_detalle(usuario):
     
     except Exception as e:
         print(f"Error en admin_profesor_detalle: {e}")
+        traceback.print_exc()
         return render_template('admin_error.html', mensaje=str(e))
 
 @app.route('/admin/reporte_individual/<usuario>')
@@ -815,7 +820,7 @@ def admin_reporte_individual(usuario):
         # Obtener estados desde Sheets
         estados = obtener_estados_desde_sheets(usuario)
         
-        # CAMBIO 3: solo_marcadas=False para mostrar TODAS las materias
+        # solo_marcadas=False para mostrar TODAS las materias
         pdf_buffer = generar_reporte_pdf(usuario, cursos, todas_materias, materias_por_curso, estados, solo_marcadas=False, nombre_completo=profesor_data.get('nombre_completo', usuario))
         
         nombre_limpio = profesor_data.get('nombre_completo', usuario).replace(' ', '_')
@@ -989,7 +994,7 @@ def admin_logout():
     session.pop('admin', None)
     return redirect('/admin')
 
-# ==================== RUTAS ORIGINALES (sin cambios) ====================
+# ==================== RUTAS ORIGINALES ====================
 
 @app.route('/', methods=['GET', 'POST'])
 def login():
@@ -1335,6 +1340,43 @@ def debug_estado():
 @app.route('/test_conexion')
 def test_conexion():
     return jsonify({"success": True, "mensaje": "Servidor activo"})
+
+# ==================== RUTAS DE DIAGNÓSTICO PARA ADMIN ====================
+
+@app.route('/admin/ver_estados/<usuario>')
+def admin_ver_estados(usuario):
+    """Ruta de diagnóstico para ver qué estados tiene un profesor"""
+    if not verificar_admin():
+        return redirect('/admin')
+    
+    try:
+        estados = obtener_estados_desde_sheets(usuario)
+        
+        # Obtener datos del profesor
+        profesor_data = obtener_datos_profesor(usuario)
+        
+        # Obtener estudiantes
+        estudiantes = est_sheet.get_all_records()
+        cursos_con_estudiantes = {}
+        for est in estudiantes:
+            curso = str(est.get('curso', '')).strip()
+            nombre = str(est.get('nombre', '')).strip()
+            if curso and nombre and profesor_data and curso in profesor_data.get('cursos', []):
+                if curso not in cursos_con_estudiantes:
+                    cursos_con_estudiantes[curso] = []
+                if nombre not in cursos_con_estudiantes[curso]:
+                    cursos_con_estudiantes[curso].append(nombre)
+        
+        # Mostrar los estados encontrados
+        return jsonify({
+            "profesor": usuario,
+            "total_estados_encontrados": len(estados),
+            "estados": {k: v for k, v in list(estados.items())[:50]},
+            "cursos": cursos_con_estudiantes,
+            "claves_ejemplo": list(estados.keys())[:10]
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)})
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
