@@ -26,19 +26,16 @@ scope = ["https://spreadsheets.google.com/feeds",
 IN_PRODUCTION = os.environ.get('RENDER', False)
 
 # ==================== CACHÉ EN MEMORIA ====================
-# Para reducir llamadas a la API de Google Sheets
 cache_datos = {}
 cache_tiempo = {}
-CACHE_DURACION = 30  # segundos
+CACHE_DURACION = 30
 
 def obtener_con_cache(key, funcion_obtener):
     """Obtiene datos de caché o los carga si expiraron"""
     ahora = time.time()
     if key in cache_datos and (ahora - cache_tiempo.get(key, 0)) < CACHE_DURACION:
-        print(f"📦 Usando caché para: {key}")
         return cache_datos[key]
     
-    print(f"🔄 Cargando datos frescos para: {key}")
     datos = funcion_obtener()
     cache_datos[key] = datos
     cache_tiempo[key] = ahora
@@ -49,7 +46,6 @@ def limpiar_cache():
     global cache_datos, cache_tiempo
     cache_datos = {}
     cache_tiempo = {}
-    print("🧹 Caché limpiada")
 
 # ==================== FUNCIÓN DE NORMALIZACIÓN ====================
 def normalizar_texto(texto):
@@ -426,60 +422,51 @@ def generar_reporte_pdf(profesor, cursos_data, todas_materias, materias_por_curs
 # ==================== FUNCIONES ADMINISTRATIVAS ====================
 
 def verificar_admin():
-    """Verifica si el usuario actual es administrador"""
     return session.get('admin', False)
 
 def obtener_todos_profesores():
     """Obtiene lista de todos los profesores con sus cursos"""
     try:
-        def cargar_profesores():
-            todas_filas = prof_sheet.get_all_values()
-            profesores = []
-            
-            if len(todas_filas) < 2:
-                return []
-            
-            for fila in todas_filas[1:]:
-                if len(fila) > 0 and fila[0].strip():
-                    profesor = {
-                        'usuario': fila[0].strip(),
-                        'nombre_completo': fila[1].strip() if len(fila) > 1 else '',
-                        'cursos': []
-                    }
-                    
-                    for i in range(1, 4):
-                        idx_curso = 3 + (i-1)*2
-                        if len(fila) > idx_curso:
-                            cursos_str = fila[idx_curso].strip() if fila[idx_curso] else ''
-                            if cursos_str:
-                                for c in cursos_str.split(','):
-                                    curso_limpio = c.strip()
-                                    if curso_limpio and curso_limpio not in profesor['cursos']:
-                                        profesor['cursos'].append(curso_limpio)
-                    
-                    profesor['cursos'].sort()
-                    profesores.append(profesor)
-            
-            return profesores
+        todas_filas = prof_sheet.get_all_values()
+        profesores = []
         
-        return obtener_con_cache('todos_profesores', cargar_profesores)
+        if len(todas_filas) < 2:
+            return []
+        
+        for fila in todas_filas[1:]:
+            if len(fila) > 0 and fila[0].strip():
+                profesor = {
+                    'usuario': fila[0].strip(),
+                    'nombre_completo': fila[1].strip() if len(fila) > 1 else '',
+                    'cursos': []
+                }
+                
+                for i in range(1, 4):
+                    idx_curso = 3 + (i-1)*2
+                    if len(fila) > idx_curso:
+                        cursos_str = fila[idx_curso].strip() if fila[idx_curso] else ''
+                        if cursos_str:
+                            for c in cursos_str.split(','):
+                                curso_limpio = c.strip()
+                                if curso_limpio and curso_limpio not in profesor['cursos']:
+                                    profesor['cursos'].append(curso_limpio)
+                
+                profesor['cursos'].sort()
+                profesores.append(profesor)
+        
+        return profesores
     except Exception as e:
         print(f"Error obteniendo profesores: {e}")
         return []
 
 def obtener_estadisticas_profesores():
-    """Obtiene estadísticas de descargas por profesor"""
     try:
-        def cargar_estadisticas():
-            return stats_sheet.get_all_records()
-        
-        return obtener_con_cache('estadisticas', cargar_estadisticas)
+        return stats_sheet.get_all_records()
     except Exception as e:
         print(f"Error obteniendo estadísticas: {e}")
         return []
 
 def actualizar_config_sistema(activo, fecha_inicio, fecha_fin):
-    """Actualiza la configuración del sistema"""
     try:
         config_data = config_sheet.get_all_records()
         
@@ -492,37 +479,27 @@ def actualizar_config_sistema(activo, fecha_inicio, fecha_fin):
             elif clave == 'fecha_fin':
                 config_sheet.update_cell(idx, 2, fecha_fin if fecha_fin else '')
         
-        # Limpiar caché después de actualizar
         limpiar_cache()
-        
         return True, "Configuración actualizada correctamente"
     except Exception as e:
         return False, str(e)
 
 def obtener_config_actual():
-    """Obtiene la configuración actual del sistema"""
     try:
-        def cargar_config():
-            config_data = config_sheet.get_all_records()
-            config = {
-                'activo': True,
-                'fecha_inicio': '',
-                'fecha_fin': ''
-            }
-            
-            for row in config_data:
-                clave = row.get('clave', '')
-                valor = row.get('valor', '')
-                if clave == 'activo':
-                    config['activo'] = convertir_a_booleano(valor)
-                elif clave == 'fecha_inicio':
-                    config['fecha_inicio'] = valor
-                elif clave == 'fecha_fin':
-                    config['fecha_fin'] = valor
-            
-            return config
+        config_data = config_sheet.get_all_records()
+        config = {'activo': True, 'fecha_inicio': '', 'fecha_fin': ''}
         
-        return obtener_con_cache('config_sistema', cargar_config)
+        for row in config_data:
+            clave = row.get('clave', '')
+            valor = row.get('valor', '')
+            if clave == 'activo':
+                config['activo'] = convertir_a_booleano(valor)
+            elif clave == 'fecha_inicio':
+                config['fecha_inicio'] = valor
+            elif clave == 'fecha_fin':
+                config['fecha_fin'] = valor
+        
+        return config
     except Exception as e:
         print(f"Error obteniendo config: {e}")
         return {'activo': True, 'fecha_inicio': '', 'fecha_fin': ''}
@@ -592,7 +569,7 @@ def obtener_datos_profesor(profesor_usuario):
         print(f"Error obteniendo datos del profesor: {e}")
         return None
 
-def generar_reporte_grupal_pdf(profesores_data, cursos_data_global, todas_materias):
+def generar_reporte_grupal_pdf(profesores_data):
     """Genera reporte PDF grupal de todos los profesores"""
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=letter,
@@ -637,7 +614,7 @@ def generar_reporte_grupal_pdf(profesores_data, cursos_data_global, todas_materi
     elementos.append(subtitulo)
     elementos.append(Spacer(1, 20))
     
-    # Obtener estudiantes una sola vez para todos los profesores
+    # Obtener estudiantes una sola vez
     estudiantes = est_sheet.get_all_records()
     estudiantes_por_curso = {}
     for est in estudiantes:
@@ -649,17 +626,32 @@ def generar_reporte_grupal_pdf(profesores_data, cursos_data_global, todas_materi
             if nombre not in estudiantes_por_curso[curso]:
                 estudiantes_por_curso[curso].append(nombre)
     
+    # Obtener materias
+    materias_data = mat_sheet.get_all_records()
+    todas_materias = {}
+    for m in materias_data:
+        try:
+            id_materia = int(float(m.get('id', 0)))
+            nombre_materia = str(m.get('nombre', '')).strip()
+            if id_materia > 0 and nombre_materia:
+                todas_materias[id_materia] = nombre_materia
+        except:
+            pass
+    
     for profesor in profesores_data:
         elementos.append(Paragraph(f"<b>Profesor: {profesor['nombre_completo']} ({profesor['usuario']})</b>", profesor_style))
         elementos.append(Spacer(1, 10))
         
+        # Obtener estados para este profesor
         estados = obtener_estados_desde_sheets(profesor['usuario'])
         
+        # Obtener cursos del profesor con estudiantes
         cursos = {}
         for curso in profesor['cursos']:
             if curso in estudiantes_por_curso:
                 cursos[curso] = estudiantes_por_curso[curso]
         
+        # Obtener materias por curso para este profesor
         todas_filas = prof_sheet.get_all_values()
         profesor_dict = {}
         if len(todas_filas) >= 2:
@@ -711,14 +703,12 @@ def generar_reporte_grupal_pdf(profesores_data, cursos_data_global, todas_materi
 
 @app.route('/admin', methods=['GET', 'POST'])
 def admin_login():
-    """Login para administradores (solo contraseña)"""
     valido, mensaje = verificar_fecha_valida()
     if not valido:
         return render_template('expirado.html', mensaje=mensaje)
     
     if request.method == 'POST':
         password = request.form.get('password', '').strip()
-        
         ADMIN_PASS = os.environ.get('ADMIN_PASS', 'admin123')
         
         if password == ADMIN_PASS:
@@ -731,7 +721,6 @@ def admin_login():
 
 @app.route('/admin/panel')
 def admin_panel():
-    """Panel principal de administración"""
     if not verificar_admin():
         return redirect('/admin')
     
@@ -744,10 +733,7 @@ def admin_panel():
         estadisticas = obtener_estadisticas_profesores()
         config = obtener_config_actual()
         
-        def cargar_respuestas():
-            return resp_sheet.get_all_records()
-        
-        todas_respuestas = obtener_con_cache('todas_respuestas', cargar_respuestas)
+        todas_respuestas = resp_sheet.get_all_records()
         total_evaluaciones = len(todas_respuestas)
         
         total_marcadas = 0
@@ -777,7 +763,6 @@ def admin_panel():
 
 @app.route('/admin/config', methods=['GET', 'POST'])
 def admin_config():
-    """Configuración del sistema (activo/fechas)"""
     if not verificar_admin():
         return redirect('/admin')
     
@@ -836,7 +821,6 @@ def admin_config():
 
 @app.route('/admin/profesor/<usuario>')
 def admin_profesor_detalle(usuario):
-    """Detalle de un profesor específico"""
     if not verificar_admin():
         return redirect('/admin')
     
@@ -864,11 +848,8 @@ def admin_reporte_individual(usuario):
         if not profesor_data:
             return "Profesor no encontrado", 404
         
-        # Obtener estudiantes una sola vez
-        def cargar_estudiantes():
-            return est_sheet.get_all_records()
-        
-        estudiantes = obtener_con_cache('todos_estudiantes', cargar_estudiantes)
+        # Obtener estudiantes para los cursos del profesor
+        estudiantes = est_sheet.get_all_records()
         cursos = {}
         
         for est in estudiantes:
@@ -881,22 +862,18 @@ def admin_reporte_individual(usuario):
                     cursos[curso].append(nombre)
         
         # Obtener materias
-        def cargar_materias():
-            materias_data = mat_sheet.get_all_records()
-            materias = {}
-            for m in materias_data:
-                try:
-                    id_materia = int(float(m.get('id', 0)))
-                    nombre_materia = str(m.get('nombre', '')).strip()
-                    if id_materia > 0 and nombre_materia:
-                        materias[id_materia] = nombre_materia
-                except:
-                    pass
-            return materias
+        materias_data = mat_sheet.get_all_records()
+        todas_materias = {}
+        for m in materias_data:
+            try:
+                id_materia = int(float(m.get('id', 0)))
+                nombre_materia = str(m.get('nombre', '')).strip()
+                if id_materia > 0 and nombre_materia:
+                    todas_materias[id_materia] = nombre_materia
+            except:
+                pass
         
-        todas_materias = obtener_con_cache('todas_materias', cargar_materias)
-        
-        # Obtener datos del profesor de la hoja
+        # Obtener materias por curso para este profesor
         todas_filas = prof_sheet.get_all_values()
         profesor_dict = {}
         if len(todas_filas) >= 2:
@@ -910,8 +887,10 @@ def admin_reporte_individual(usuario):
         
         materias_por_curso = obtener_materias_por_curso(profesor_dict, profesor_data.get('cursos', []))
         
+        # Obtener estados desde Sheets
         estados = obtener_estados_desde_sheets(usuario)
         
+        # Generar PDF
         pdf_buffer = generar_reporte_pdf(usuario, cursos, todas_materias, materias_por_curso, estados, solo_marcadas=True, nombre_completo=profesor_data.get('nombre_completo', usuario))
         
         nombre_limpio = profesor_data.get('nombre_completo', usuario).replace(' ', '_')
@@ -940,22 +919,7 @@ def admin_reporte_grupal():
         if not profesores:
             return "No hay profesores registrados", 404
         
-        def cargar_materias():
-            materias_data = mat_sheet.get_all_records()
-            materias = {}
-            for m in materias_data:
-                try:
-                    id_materia = int(float(m.get('id', 0)))
-                    nombre_materia = str(m.get('nombre', '')).strip()
-                    if id_materia > 0 and nombre_materia:
-                        materias[id_materia] = nombre_materia
-                except:
-                    pass
-            return materias
-        
-        todas_materias = obtener_con_cache('todas_materias', cargar_materias)
-        
-        pdf_buffer = generar_reporte_grupal_pdf(profesores, None, todas_materias)
+        pdf_buffer = generar_reporte_grupal_pdf(profesores)
         
         return send_file(
             pdf_buffer,
@@ -971,17 +935,8 @@ def admin_reporte_grupal():
 
 @app.route('/admin/logout')
 def admin_logout():
-    """Cierre de sesión administrador"""
     session.pop('admin', None)
     return redirect('/admin')
-
-@app.route('/admin/limpiar_cache')
-def admin_limpiar_cache():
-    """Limpia la caché (solo para administradores)"""
-    if not verificar_admin():
-        return redirect('/admin')
-    limpiar_cache()
-    return "Caché limpiada correctamente"
 
 # ==================== RUTAS ORIGINALES (sin cambios) ====================
 
@@ -1074,10 +1029,7 @@ def panel():
         
         print(f"🔍 Panel para: {usuario}")
         
-        def cargar_estudiantes():
-            return est_sheet.get_all_records()
-        
-        estudiantes = obtener_con_cache('todos_estudiantes', cargar_estudiantes)
+        estudiantes = est_sheet.get_all_records()
         cursos = {}
         
         for est in estudiantes:
@@ -1090,20 +1042,16 @@ def panel():
                 if nombre not in cursos[curso] and nombre:
                     cursos[curso].append(nombre)
         
-        def cargar_materias():
-            materias_data = mat_sheet.get_all_records()
-            materias = {}
-            for m in materias_data:
-                try:
-                    id_materia = int(float(m.get('id', 0)))
-                    nombre_materia = str(m.get('nombre', '')).strip()
-                    if id_materia > 0 and nombre_materia and nombre_materia != '':
-                        materias[id_materia] = nombre_materia
-                except Exception as e:
-                    continue
-            return materias
-        
-        todas_materias = obtener_con_cache('todas_materias', cargar_materias)
+        materias_data = mat_sheet.get_all_records()
+        todas_materias = {}
+        for m in materias_data:
+            try:
+                id_materia = int(float(m.get('id', 0)))
+                nombre_materia = str(m.get('nombre', '')).strip()
+                if id_materia > 0 and nombre_materia and nombre_materia != '':
+                    todas_materias[id_materia] = nombre_materia
+            except Exception as e:
+                continue
         
         estados = obtener_estados_desde_sheets(usuario)
         
@@ -1210,7 +1158,6 @@ def guardar():
                         print(f"   Actualizada materia M{materia} en fila {idx}")
                         break
         
-        # Limpiar caché de respuestas después de guardar
         limpiar_cache()
         
         return jsonify({"success": True, "mensaje": "Guardado correctamente"})
@@ -1234,10 +1181,7 @@ def pdf():
         nombre_completo = session.get('nombre_completo', profesor)
         materias_por_curso = session.get('materias_por_curso', {})
         
-        def cargar_estudiantes():
-            return est_sheet.get_all_records()
-        
-        estudiantes = obtener_con_cache('todos_estudiantes', cargar_estudiantes)
+        estudiantes = est_sheet.get_all_records()
         cursos = {}
         for est in estudiantes:
             curso = str(est.get('curso', '')).strip()
@@ -1248,20 +1192,16 @@ def pdf():
                 if nombre not in cursos[curso] and nombre:
                     cursos[curso].append(nombre)
         
-        def cargar_materias():
-            materias_data = mat_sheet.get_all_records()
-            materias = {}
-            for m in materias_data:
-                try:
-                    id_materia = int(float(m.get('id', 0)))
-                    nombre_materia = str(m.get('nombre', '')).strip()
-                    if id_materia > 0 and nombre_materia and nombre_materia != '':
-                        materias[id_materia] = nombre_materia
-                except:
-                    pass
-            return materias
-        
-        todas_materias = obtener_con_cache('todas_materias', cargar_materias)
+        materias_data = mat_sheet.get_all_records()
+        todas_materias = {}
+        for m in materias_data:
+            try:
+                id_materia = int(float(m.get('id', 0)))
+                nombre_materia = str(m.get('nombre', '')).strip()
+                if id_materia > 0 and nombre_materia and nombre_materia != '':
+                    todas_materias[id_materia] = nombre_materia
+            except:
+                pass
         
         estados = obtener_estados_desde_sheets(profesor)
         print(f"📊 PDF: {len(estados)} estados cargados desde Sheets para {profesor}")
