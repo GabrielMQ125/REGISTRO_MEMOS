@@ -11,8 +11,8 @@
         table { width: 100%; border-collapse: collapse; margin-top: 15px; }
         th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
         th { background: #667eea; color: white; }
-        .check-yes { color: green; font-weight: bold; }
-        .check-no { color: #999; }
+        .evaluado { background-color: #d4edda; color: #155724; }
+        .no-evaluado { background-color: #f8d7da; color: #721c24; }
         .curso-tab, .materia-tab { display: inline-block; padding: 8px 20px; margin: 5px; background: #667eea; color: white; border-radius: 25px; cursor: pointer; }
         .curso-tab.active, .materia-tab.active { background: #28a745; }
         .curso-contenido { display: none; margin-top: 20px; }
@@ -20,9 +20,11 @@
         .tabla-materia { display: none; margin-top: 20px; }
         .tabla-materia.active { display: block; }
         .badge { background: #e7f3ff; padding: 5px 12px; margin: 5px; display: inline-block; border-radius: 20px; }
-        .estadisticas-curso { background: #f0f0f0; padding: 10px; margin-top: 10px; border-radius: 5px; }
-        .evaluado { color: green; font-weight: bold; background: #e8f5e9; }
-        .no-evaluado { color: #999; }
+        .estadisticas-curso { background: #f0f0f0; padding: 10px; margin: 15px 0; border-radius: 5px; }
+        .total-marcadas { font-size: 24px; font-weight: bold; color: #28a745; }
+        .debug-info { background: #fff3cd; border: 1px solid #ffc107; padding: 10px; margin-top: 20px; border-radius: 5px; font-size: 12px; }
+        .btn-sincronizar { background: #ffc107; color: #333; padding: 8px 15px; border: none; border-radius: 5px; cursor: pointer; margin-left: 10px; }
+        .btn-sincronizar:hover { background: #e0a800; }
     </style>
 </head>
 <body>
@@ -31,6 +33,7 @@
         <p>Total evaluaciones registradas: {{ profesor.total_evaluaciones }}</p>
         <a href="/admin/panel" style="color: white;">← Volver</a> | 
         <a href="/admin/reporte_individual/{{ profesor.usuario }}" style="color: white;">📄 PDF Completo</a>
+        <button class="btn-sincronizar" onclick="sincronizarEstados()">🔄 Sincronizar Estados</button>
     </div>
     
     <div class="card">
@@ -55,17 +58,20 @@
         <div class="curso-contenido" id="curso-{{ curso }}">
             <h4>📚 Curso: {{ curso }}</h4>
             
+            <!-- Materias asignadas al curso -->
+            {% set materias_ids = materias_por_curso.get(curso, []) %}
+            
             <!-- Estadísticas del curso -->
             <div class="estadisticas-curso">
-                <strong>Estadísticas del curso:</strong>
-                {% set materias_ids = materias_por_curso.get(curso, []) %}
+                <strong>📊 Estadísticas del curso:</strong>
                 {% set total_materias_curso = materias_ids|length %}
                 {% set total_alumnos_curso = alumnos|length %}
                 {% set total_posibles = total_materias_curso * total_alumnos_curso %}
                 {% set total_marcadas_curso = 0 %}
                 {% for alumno in alumnos %}
                     {% for materia_id in materias_ids %}
-                        {% set evaluado = evaluaciones_detalle.get(curso, {}).get(alumno, {}).get(materia_id|string, false) %}
+                        {% set materia_id_str = materia_id|string %}
+                        {% set evaluado = evaluaciones_detalle.get(curso, {}).get(alumno, {}).get(materia_id_str, false) %}
                         {% if evaluado %}
                             {% set total_marcadas_curso = total_marcadas_curso + 1 %}
                         {% endif %}
@@ -73,47 +79,50 @@
                 {% endfor %}
                 {% if total_posibles > 0 %}
                     {% set porcentaje = (total_marcadas_curso / total_posibles * 100)|round(1) %}
-                    <p>Evaluaciones realizadas: {{ total_marcadas_curso }} de {{ total_posibles }} posibles ({{ porcentaje }}%)</p>
+                    <p><span class="total-marcadas">{{ total_marcadas_curso }}</span> evaluaciones realizadas de {{ total_posibles }} posibles ({{ porcentaje }}%)</p>
                 {% else %}
-                    <p>No hay materias asignadas para este curso</p>
+                    <p>⚠️ No hay materias asignadas para este curso</p>
                 {% endif %}
             </div>
             
             <!-- Pestañas de materias -->
+            {% if materias_ids|length > 0 %}
             <div style="margin: 20px 0;">
-                {% for materia_id in materias_por_curso.get(curso, []) %}
-                    {% if materia_id|string in todas_materias %}
+                {% for materia_id in materias_ids %}
+                    {% set materia_id_str = materia_id|string %}
+                    {% if materia_id_str in todas_materias %}
                         <div class="materia-tab" data-curso="{{ curso }}" data-materia="{{ materia_id }}">
-                            {{ todas_materias[materia_id|string] }}
+                            {{ todas_materias[materia_id_str] }}
                         </div>
                     {% endif %}
                 {% endfor %}
             </div>
             
             <!-- Tablas de cada materia -->
-            {% for materia_id in materias_por_curso.get(curso, []) %}
-                {% if materia_id|string in todas_materias %}
+            {% for materia_id in materias_ids %}
+                {% set materia_id_str = materia_id|string %}
+                {% if materia_id_str in todas_materias %}
                 <div class="tabla-materia" id="tabla-{{ curso }}-{{ materia_id }}">
-                    <h5>📋 {{ todas_materias[materia_id|string] }}</h5>
+                    <h5>📋 {{ todas_materias[materia_id_str] }}</h5>
                     <table>
                         <thead>
                             <tr>
                                 <th width="50">#</th>
                                 <th>Alumno</th>
-                                <th width="120">Estado</th>
+                                <th width="150">Estado</th>
                             </tr>
                         </thead>
                         <tbody>
                             {% for alumno in alumnos %}
-                                {% set evaluado = evaluaciones_detalle.get(curso, {}).get(alumno, {}).get(materia_id|string, false) %}
+                                {% set evaluado = evaluaciones_detalle.get(curso, {}).get(alumno, {}).get(materia_id_str, false) %}
                                 <tr class="{% if evaluado %}evaluado{% else %}no-evaluado{% endif %}">
                                     <td>{{ loop.index }}</td>
                                     <td>{{ alumno }}</td>
                                     <td>
                                         {% if evaluado %}
-                                            ✅ <strong>EVALUADO</strong>
+                                            ✅ EVALUADO
                                         {% else %}
-                                            ⭕ NO EVALUADO
+                                            ❌ NO EVALUADO
                                         {% endif %}
                                     </td>
                                 </tr>
@@ -123,11 +132,75 @@
                 </div>
                 {% endif %}
             {% endfor %}
+            {% else %}
+            <div class="alert alert-warning">
+                ⚠️ No hay materias asignadas para este curso en la configuración del profesor.
+            </div>
+            {% endif %}
         </div>
         {% endfor %}
     </div>
     
+    <div class="card debug-info" id="debug-info" style="display: none;">
+        <h4>Información de Depuración</h4>
+        <pre id="debug-content"></pre>
+    </div>
+    
     <script>
+        // Variables para almacenar datos
+        let evaluacionesData = {{ evaluaciones_detalle|tojson }};
+        
+        // Mostrar información de depuración
+        function mostrarDebug() {
+            const debugDiv = document.getElementById('debug-info');
+            const debugContent = document.getElementById('debug-content');
+            
+            // Contar total de evaluaciones
+            let totalEvaluaciones = 0;
+            for (let curso in evaluacionesData) {
+                for (let alumno in evaluacionesData[curso]) {
+                    for (let materia in evaluacionesData[curso][alumno]) {
+                        if (evaluacionesData[curso][alumno][materia]) {
+                            totalEvaluaciones++;
+                        }
+                    }
+                }
+            }
+            
+            debugContent.textContent = JSON.stringify({
+                cursos_disponibles: Object.keys(evaluacionesData),
+                total_evaluaciones_marcadas: totalEvaluaciones,
+                muestra: evaluacionesData
+            }, null, 2);
+            
+            debugDiv.style.display = 'block';
+        }
+        
+        // Sincronizar estados
+        async function sincronizarEstados() {
+            const btn = document.querySelector('.btn-sincronizar');
+            const textoOriginal = btn.textContent;
+            btn.textContent = '🔄 Sincronizando...';
+            btn.disabled = true;
+            
+            try {
+                const response = await fetch('/admin/sincronizar/{{ profesor.usuario }}');
+                const data = await response.json();
+                
+                if (data.success) {
+                    alert(`✅ Sincronización completada!\nSe encontraron ${data.total_estados} estados para este profesor.\nRecarga la página para ver los cambios.`);
+                    location.reload();
+                } else {
+                    alert(`❌ Error: ${data.error}`);
+                }
+            } catch (error) {
+                alert(`❌ Error al sincronizar: ${error.message}`);
+            } finally {
+                btn.textContent = textoOriginal;
+                btn.disabled = false;
+            }
+        }
+        
         // Inicializar: mostrar primer curso y primera materia
         function inicializar() {
             const cursosTabs = document.querySelectorAll('.curso-tab');
@@ -210,6 +283,13 @@
         
         // Ejecutar inicialización cuando la página cargue
         document.addEventListener('DOMContentLoaded', inicializar);
+        
+        // Presiona Ctrl+Shift+D para mostrar debug
+        document.addEventListener('keydown', function(e) {
+            if (e.ctrlKey && e.shiftKey && e.key === 'D') {
+                mostrarDebug();
+            }
+        });
     </script>
 </body>
 </html>
