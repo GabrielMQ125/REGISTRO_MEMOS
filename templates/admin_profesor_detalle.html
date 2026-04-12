@@ -12,7 +12,7 @@
         th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
         th { background: #667eea; color: white; }
         .check-yes { color: green; font-weight: bold; }
-        .check-no { color: red; font-weight: bold; }
+        .check-no { color: #999; }
         .curso-tab, .materia-tab { display: inline-block; padding: 8px 20px; margin: 5px; background: #667eea; color: white; border-radius: 25px; cursor: pointer; }
         .curso-tab.active, .materia-tab.active { background: #28a745; }
         .curso-contenido { display: none; margin-top: 20px; }
@@ -20,14 +20,17 @@
         .tabla-materia { display: none; margin-top: 20px; }
         .tabla-materia.active { display: block; }
         .badge { background: #e7f3ff; padding: 5px 12px; margin: 5px; display: inline-block; border-radius: 20px; }
+        .estadisticas-curso { background: #f0f0f0; padding: 10px; margin-top: 10px; border-radius: 5px; }
+        .evaluado { color: green; font-weight: bold; background: #e8f5e9; }
+        .no-evaluado { color: #999; }
     </style>
 </head>
 <body>
     <div class="header">
         <h1>👨‍🏫 {{ profesor.nombre_completo }} ({{ profesor.usuario }})</h1>
-        <p>Total evaluaciones: {{ profesor.total_evaluaciones }}</p>
+        <p>Total evaluaciones registradas: {{ profesor.total_evaluaciones }}</p>
         <a href="/admin/panel" style="color: white;">← Volver</a> | 
-        <a href="/admin/reporte_individual/{{ profesor.usuario }}" style="color: white;">📄 PDF</a>
+        <a href="/admin/reporte_individual/{{ profesor.usuario }}" style="color: white;">📄 PDF Completo</a>
     </div>
     
     <div class="card">
@@ -41,23 +44,47 @@
         <h3>Evaluaciones por Curso y Materia</h3>
         
         <!-- Pestañas de cursos -->
-        <div>
+        <div style="margin-bottom: 20px;">
             {% for curso, alumnos in cursos_con_estudiantes.items() %}
-                <div class="curso-tab" data-curso="{{ curso }}">{{ curso }} ({{ alumnos|length }})</div>
+                <div class="curso-tab" data-curso="{{ curso }}">{{ curso }} ({{ alumnos|length }} alumnos)</div>
             {% endfor %}
         </div>
         
         <!-- Contenido de cada curso -->
         {% for curso, alumnos in cursos_con_estudiantes.items() %}
         <div class="curso-contenido" id="curso-{{ curso }}">
-            <h4>Curso: {{ curso }}</h4>
+            <h4>📚 Curso: {{ curso }}</h4>
+            
+            <!-- Estadísticas del curso -->
+            <div class="estadisticas-curso">
+                <strong>Estadísticas del curso:</strong>
+                {% set materias_ids = materias_por_curso.get(curso, []) %}
+                {% set total_materias_curso = materias_ids|length %}
+                {% set total_alumnos_curso = alumnos|length %}
+                {% set total_posibles = total_materias_curso * total_alumnos_curso %}
+                {% set total_marcadas_curso = 0 %}
+                {% for alumno in alumnos %}
+                    {% for materia_id in materias_ids %}
+                        {% set evaluado = evaluaciones_detalle.get(curso, {}).get(alumno, {}).get(materia_id|string, false) %}
+                        {% if evaluado %}
+                            {% set total_marcadas_curso = total_marcadas_curso + 1 %}
+                        {% endif %}
+                    {% endfor %}
+                {% endfor %}
+                {% if total_posibles > 0 %}
+                    {% set porcentaje = (total_marcadas_curso / total_posibles * 100)|round(1) %}
+                    <p>Evaluaciones realizadas: {{ total_marcadas_curso }} de {{ total_posibles }} posibles ({{ porcentaje }}%)</p>
+                {% else %}
+                    <p>No hay materias asignadas para este curso</p>
+                {% endif %}
+            </div>
             
             <!-- Pestañas de materias -->
-            <div>
+            <div style="margin: 20px 0;">
                 {% for materia_id in materias_por_curso.get(curso, []) %}
-                    {% if materia_id in todas_materias %}
+                    {% if materia_id|string in todas_materias %}
                         <div class="materia-tab" data-curso="{{ curso }}" data-materia="{{ materia_id }}">
-                            {{ todas_materias[materia_id] }}
+                            {{ todas_materias[materia_id|string] }}
                         </div>
                     {% endif %}
                 {% endfor %}
@@ -65,18 +92,31 @@
             
             <!-- Tablas de cada materia -->
             {% for materia_id in materias_por_curso.get(curso, []) %}
-                {% if materia_id in todas_materias %}
+                {% if materia_id|string in todas_materias %}
                 <div class="tabla-materia" id="tabla-{{ curso }}-{{ materia_id }}">
+                    <h5>📋 {{ todas_materias[materia_id|string] }}</h5>
                     <table>
-                        <thead><tr><th>#</th><th>Alumno</th><th>Estado</th></tr></thead>
+                        <thead>
+                            <tr>
+                                <th width="50">#</th>
+                                <th>Alumno</th>
+                                <th width="120">Estado</th>
+                            </tr>
+                        </thead>
                         <tbody>
                             {% for alumno in alumnos %}
-                                {% set evaluado = evaluaciones_detalle.get(curso, {}).get(alumno, {}).get(materia_id, false) %}
-                            <tr>
-                                <td>{{ loop.index }}</td>
-                                <td>{{ alumno }}</td>
-                                <td>{% if evaluado %}✓ EVALUADO{% else %}✗ NO EVALUADO{% endif %}</td>
-                            </tr>
+                                {% set evaluado = evaluaciones_detalle.get(curso, {}).get(alumno, {}).get(materia_id|string, false) %}
+                                <tr class="{% if evaluado %}evaluado{% else %}no-evaluado{% endif %}">
+                                    <td>{{ loop.index }}</td>
+                                    <td>{{ alumno }}</td>
+                                    <td>
+                                        {% if evaluado %}
+                                            ✅ <strong>EVALUADO</strong>
+                                        {% else %}
+                                            ⭕ NO EVALUADO
+                                        {% endif %}
+                                    </td>
+                                </tr>
                             {% endfor %}
                         </tbody>
                     </table>
@@ -88,19 +128,29 @@
     </div>
     
     <script>
-        // Mostrar primer curso
-        const primerosCursos = document.querySelectorAll('.curso-tab');
-        if (primerosCursos.length > 0) {
-            primerosCursos[0].classList.add('active');
-            const primerCurso = primerosCursos[0].getAttribute('data-curso');
-            document.getElementById('curso-' + primerCurso).classList.add('active');
-            
-            const primerasMaterias = document.querySelectorAll('.materia-tab');
-            if (primerasMaterias.length > 0) {
-                primerasMaterias[0].classList.add('active');
-                const curso = primerasMaterias[0].getAttribute('data-curso');
-                const materia = primerasMaterias[0].getAttribute('data-materia');
-                document.getElementById('tabla-' + curso + '-' + materia).classList.add('active');
+        // Inicializar: mostrar primer curso y primera materia
+        function inicializar() {
+            const cursosTabs = document.querySelectorAll('.curso-tab');
+            if (cursosTabs.length > 0) {
+                // Activar primer curso
+                cursosTabs[0].classList.add('active');
+                const primerCurso = cursosTabs[0].getAttribute('data-curso');
+                const primerCursoContenido = document.getElementById('curso-' + primerCurso);
+                if (primerCursoContenido) {
+                    primerCursoContenido.classList.add('active');
+                    
+                    // Activar primera materia de ese curso
+                    const materiasTabs = primerCursoContenido.querySelectorAll('.materia-tab');
+                    if (materiasTabs.length > 0) {
+                        materiasTabs[0].classList.add('active');
+                        const curso = materiasTabs[0].getAttribute('data-curso');
+                        const materia = materiasTabs[0].getAttribute('data-materia');
+                        const primeraTabla = document.getElementById('tabla-' + curso + '-' + materia);
+                        if (primeraTabla) {
+                            primeraTabla.classList.add('active');
+                        }
+                    }
+                }
             }
         }
         
@@ -108,10 +158,31 @@
         document.querySelectorAll('.curso-tab').forEach(tab => {
             tab.addEventListener('click', function() {
                 const curso = this.getAttribute('data-curso');
+                
+                // Actualizar tabs de cursos
                 document.querySelectorAll('.curso-tab').forEach(t => t.classList.remove('active'));
                 this.classList.add('active');
+                
+                // Actualizar contenido de cursos
                 document.querySelectorAll('.curso-contenido').forEach(c => c.classList.remove('active'));
-                document.getElementById('curso-' + curso).classList.add('active');
+                const cursoActivo = document.getElementById('curso-' + curso);
+                cursoActivo.classList.add('active');
+                
+                // Resetear materias activas de este curso
+                cursoActivo.querySelectorAll('.tabla-materia').forEach(t => t.classList.remove('active'));
+                const materiasTabs = cursoActivo.querySelectorAll('.materia-tab');
+                materiasTabs.forEach(t => t.classList.remove('active'));
+                
+                // Activar primera materia del curso
+                if (materiasTabs.length > 0) {
+                    materiasTabs[0].classList.add('active');
+                    const materiaCurso = materiasTabs[0].getAttribute('data-curso');
+                    const materiaId = materiasTabs[0].getAttribute('data-materia');
+                    const primeraTabla = document.getElementById('tabla-' + materiaCurso + '-' + materiaId);
+                    if (primeraTabla) {
+                        primeraTabla.classList.add('active');
+                    }
+                }
             });
         });
         
@@ -121,12 +192,24 @@
                 const curso = this.getAttribute('data-curso');
                 const materia = this.getAttribute('data-materia');
                 const contenedor = document.getElementById('curso-' + curso);
-                contenedor.querySelectorAll('.materia-tab').forEach(t => t.classList.remove('active'));
-                this.classList.add('active');
-                contenedor.querySelectorAll('.tabla-materia').forEach(t => t.classList.remove('active'));
-                document.getElementById('tabla-' + curso + '-' + materia).classList.add('active');
+                
+                if (contenedor) {
+                    // Actualizar tabs de materias dentro del curso
+                    contenedor.querySelectorAll('.materia-tab').forEach(t => t.classList.remove('active'));
+                    this.classList.add('active');
+                    
+                    // Actualizar tablas de materias dentro del curso
+                    contenedor.querySelectorAll('.tabla-materia').forEach(t => t.classList.remove('active'));
+                    const tablaActiva = document.getElementById('tabla-' + curso + '-' + materia);
+                    if (tablaActiva) {
+                        tablaActiva.classList.add('active');
+                    }
+                }
             });
         });
+        
+        // Ejecutar inicialización cuando la página cargue
+        document.addEventListener('DOMContentLoaded', inicializar);
     </script>
 </body>
 </html>
