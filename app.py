@@ -714,6 +714,10 @@ def admin_profesor_detalle(usuario):
                 if nombre not in cursos_con_estudiantes[curso]:
                     cursos_con_estudiantes[curso].append(nombre)
         
+        # Ordenar estudiantes alfabéticamente
+        for curso in cursos_con_estudiantes:
+            cursos_con_estudiantes[curso].sort()
+        
         # Obtener materias
         materias_data = mat_sheet.get_all_records()
         todas_materias = {}
@@ -745,21 +749,65 @@ def admin_profesor_detalle(usuario):
         
         # Construir matriz de evaluaciones por curso, alumno y materia
         evaluaciones_detalle = {}
+        estadisticas_curso = {}
+        
         for curso, alumnos in cursos_con_estudiantes.items():
             evaluaciones_detalle[curso] = {}
             materias_ids = materias_por_curso.get(curso, [])
+            
+            # Inicializar estadísticas
+            estadisticas_curso[curso] = {
+                'total_alumnos': len(alumnos),
+                'total_materias': len(materias_ids),
+                'total_posibles': len(alumnos) * len(materias_ids),
+                'total_marcadas': 0,
+                'materias_marcadas_por_alumno': {}
+            }
+            
             for alumno in alumnos:
                 evaluaciones_detalle[curso][alumno] = {}
+                materias_marcadas_alumno = 0
+                
                 for materia_id in materias_ids:
                     key = f"{curso}_{alumno}_{materia_id}"
-                    evaluaciones_detalle[curso][alumno][str(materia_id)] = estados.get(key, False)
+                    esta_marcada = estados.get(key, False)
+                    evaluaciones_detalle[curso][alumno][str(materia_id)] = esta_marcada
+                    
+                    if esta_marcada:
+                        estadisticas_curso[curso]['total_marcadas'] += 1
+                        materias_marcadas_alumno += 1
+                
+                estadisticas_curso[curso]['materias_marcadas_por_alumno'][alumno] = materias_marcadas_alumno
+            
+            # Calcular porcentaje
+            if estadisticas_curso[curso]['total_posibles'] > 0:
+                estadisticas_curso[curso]['porcentaje'] = round(
+                    (estadisticas_curso[curso]['total_marcadas'] / 
+                     estadisticas_curso[curso]['total_posibles']) * 100, 1
+                )
+            else:
+                estadisticas_curso[curso]['porcentaje'] = 0
+        
+        # Obtener estadísticas de descargas
+        try:
+            stats = stats_sheet.get_all_records()
+            descargas_profesor = 0
+            for stat in stats:
+                if stat.get('profesor', '').upper() == usuario.upper():
+                    descargas_profesor = int(stat.get('descargas_pdf', 0))
+                    break
+        except:
+            descargas_profesor = 0
         
         return render_template('admin_profesor_detalle.html', 
                              profesor=profesor_data,
                              cursos_con_estudiantes=cursos_con_estudiantes,
                              todas_materias=todas_materias,
                              materias_por_curso=materias_por_curso,
-                             evaluaciones_detalle=evaluaciones_detalle)
+                             evaluaciones_detalle=evaluaciones_detalle,
+                             estadisticas_curso=estadisticas_curso,
+                             descargas_profesor=descargas_profesor,
+                             total_estados_encontrados=len(estados))
     
     except Exception as e:
         print(f"Error en admin_profesor_detalle: {e}")
