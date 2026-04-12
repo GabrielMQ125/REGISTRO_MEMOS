@@ -125,6 +125,7 @@ def convertir_a_booleano(valor):
 def booleano_a_texto(valor):
     return "TRUE" if valor else "FALSE"
 
+# ==================== CAMBIO 1: Función verificar_fecha_valida con parámetro ignorar_admin ====================
 def verificar_fecha_valida(ignorar_admin=False):
     """Verifica si el sistema está activo (ignorar_admin=True para rutas de admin)"""
     try:
@@ -559,6 +560,7 @@ def obtener_datos_profesor(profesor_usuario):
 @app.route('/admin', methods=['GET', 'POST'])
 def admin_login():
     """Login para administradores (solo contraseña)"""
+    # CAMBIO 2: ignorar_admin=True para que admin pueda entrar aunque sistema esté desactivado
     valido, mensaje = verificar_fecha_valida(ignorar_admin=True)
     if not valido:
         return render_template('expirado.html', mensaje=mensaje)
@@ -581,6 +583,7 @@ def admin_panel():
     if not verificar_admin():
         return redirect('/admin')
     
+    # CAMBIO 2: ignorar_admin=True para que admin pueda ver panel aunque sistema esté desactivado
     valido, mensaje = verificar_fecha_valida(ignorar_admin=True)
     if not valido:
         return render_template('expirado.html', mensaje=mensaje)
@@ -624,6 +627,7 @@ def admin_config():
     if not verificar_admin():
         return redirect('/admin')
     
+    # CAMBIO 2: ignorar_admin=True para que admin pueda configurar aunque sistema esté desactivado
     valido, mensaje = verificar_fecha_valida(ignorar_admin=True)
     if not valido:
         return render_template('expirado.html', mensaje=mensaje)
@@ -811,7 +815,7 @@ def admin_reporte_individual(usuario):
         # Obtener estados desde Sheets
         estados = obtener_estados_desde_sheets(usuario)
         
-        # Generar PDF (mostrar todas las materias)
+        # CAMBIO 3: solo_marcadas=False para mostrar TODAS las materias en el PDF
         pdf_buffer = generar_reporte_pdf(usuario, cursos, todas_materias, materias_por_curso, estados, solo_marcadas=False, nombre_completo=profesor_data.get('nombre_completo', usuario))
         
         nombre_limpio = profesor_data.get('nombre_completo', usuario).replace(' ', '_')
