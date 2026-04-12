@@ -40,6 +40,13 @@
             padding: 20px;
             border-radius: 10px;
             text-align: center;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        
+        .stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
         }
         
         .stat-value {
@@ -213,6 +220,42 @@
             flex-wrap: wrap;
         }
         
+        /* Modal para mostrar lista de estudiantes */
+        .modal-content {
+            border-radius: 15px;
+        }
+        
+        .modal-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 15px 15px 0 0;
+        }
+        
+        .modal-header .btn-close {
+            filter: brightness(0) invert(1);
+        }
+        
+        .estudiante-lista-item {
+            padding: 8px 15px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            align-items: center;
+        }
+        
+        .estudiante-lista-item:last-child {
+            border-bottom: none;
+        }
+        
+        .live-badge {
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.7; }
+            100% { opacity: 1; }
+        }
+        
         @media (max-width: 768px) {
             .stats-grid {
                 grid-template-columns: 1fr;
@@ -253,19 +296,22 @@
                 </div>
             </div>
             
-            <!-- Estadísticas generales -->
+            <!-- Estadísticas generales con modales informativos -->
             <div class="stats-grid">
-                <div class="stat-card">
+                <div class="stat-card" data-bs-toggle="modal" data-bs-target="#modalCursos">
                     <div class="stat-label">Cursos Asignados</div>
                     <div class="stat-value">{{ profesor.cursos|length }}</div>
+                    <small><i class="bi bi-eye"></i> Click para ver detalles</small>
                 </div>
-                <div class="stat-card">
+                <div class="stat-card" data-bs-toggle="modal" data-bs-target="#modalEvaluaciones">
                     <div class="stat-label">Total Evaluaciones</div>
                     <div class="stat-value">{{ profesor.total_evaluaciones }}</div>
+                    <small><i class="bi bi-eye"></i> Click para ver detalles</small>
                 </div>
-                <div class="stat-card">
+                <div class="stat-card" data-bs-toggle="modal" data-bs-target="#modalEstados">
                     <div class="stat-label">Estados Encontrados</div>
                     <div class="stat-value">{{ total_estados_encontrados }}</div>
+                    <small><i class="bi bi-eye"></i> Click para ver lista</small>
                 </div>
                 <div class="stat-card">
                     <div class="stat-label">Descargas PDF</div>
@@ -279,6 +325,17 @@
                 {% for curso in profesor.cursos %}
                     <span class="badge bg-primary me-2 mb-2 p-2">{{ curso }}</span>
                 {% endfor %}
+            </div>
+            
+            <!-- Botón de actualización en tiempo real -->
+            <div class="mt-3">
+                <button class="btn btn-info sincronizar-btn" onclick="actualizarEnTiempoReal()">
+                    <i class="bi bi-arrow-clockwise"></i> Actualizar Ahora
+                </button>
+                <span class="ms-2 text-muted live-badge">
+                    <i class="bi bi-circle-fill text-success" style="font-size: 10px;"></i> 
+                    Datos en vivo desde Google Sheets
+                </span>
             </div>
         </div>
         
@@ -399,13 +456,86 @@
         </div>
         {% endfor %}
         
-        <!-- Panel de depuración (oculto por defecto) -->
-        <div class="debug-panel" id="debugPanel" style="display: none;">
-            <h5><i class="bi bi-bug"></i> Información de Depuración</h5>
-            <button class="btn btn-sm btn-warning mb-2" onclick="sincronizarEstados()">
-                <i class="bi bi-arrow-repeat"></i> Sincronizar Estados
-            </button>
-            <pre id="debugContent" style="background: #f8f9fa; padding: 10px; border-radius: 5px; max-height: 300px; overflow: auto;"></pre>
+        <!-- Modales informativos -->
+        <!-- Modal Cursos -->
+        <div class="modal fade" id="modalCursos" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title"><i class="bi bi-book"></i> Cursos Asignados</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <ul class="list-group">
+                            {% for curso in profesor.cursos %}
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    {{ curso }}
+                                    <span class="badge bg-primary rounded-pill">
+                                        {{ cursos_con_estudiantes[curso]|length }} estudiantes
+                                    </span>
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Modal Evaluaciones -->
+        <div class="modal fade" id="modalEvaluaciones" tabindex="-1">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title"><i class="bi bi-list-check"></i> Detalle de Evaluaciones</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Curso</th>
+                                        <th>Alumno</th>
+                                        <th>Materias Evaluadas</th>
+                                        <th>Fecha</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for eval in profesor.evaluaciones %}
+                                        <tr>
+                                            <td>{{ eval.curso }}</td>
+                                            <td>{{ eval.alumno }}</td>
+                                            <td>{{ eval.total_materias }}/20</td>
+                                            <td>{{ eval.fecha }}</td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Modal Estados Encontrados -->
+        <div class="modal fade" id="modalEstados" tabindex="-1">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title"><i class="bi bi-database"></i> Estados Encontrados (Materias Marcadas)</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div id="estados-lista">
+                            <div class="text-center">
+                                <div class="spinner-border text-primary" role="status">
+                                    <span class="visually-hidden">Cargando...</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
     
@@ -416,24 +546,17 @@
         const estadisticasCurso = {{ estadisticas_curso|tojson }};
         const profesorUsuario = '{{ profesor.usuario }}';
         
-        // Estado actual
-        let cursoActual = null;
-        let materiaActual = null;
-        
         // Función para mostrar una materia específica
         function mostrarMateria(curso, materiaId) {
-            // Ocultar todas las tablas del curso
             const cursoId = curso.replace(/ /g, '_');
             const tablas = document.querySelectorAll(`[id^="tabla-${cursoId}-"]`);
             tablas.forEach(tabla => tabla.style.display = 'none');
             
-            // Mostrar la tabla seleccionada
             const tablaSeleccionada = document.getElementById(`tabla-${cursoId}-${materiaId}`);
             if (tablaSeleccionada) {
                 tablaSeleccionada.style.display = 'block';
             }
             
-            // Actualizar tabs activos
             const tabs = document.querySelectorAll(`#tabs-${cursoId} .materia-tab`);
             tabs.forEach(tab => tab.classList.remove('active'));
             
@@ -443,15 +566,12 @@
             if (tabActivo) {
                 tabActivo.classList.add('active');
             }
-            
-            cursoActual = curso;
-            materiaActual = materiaId;
         }
         
         // Función para inicializar la primera materia de cada curso
         function inicializarVistas() {
             const cursos = document.querySelectorAll('.curso-card');
-            cursos.forEach((cursoCard, index) => {
+            cursos.forEach((cursoCard) => {
                 const primerTab = cursoCard.querySelector('.materia-tab');
                 if (primerTab) {
                     const curso = primerTab.getAttribute('data-curso');
@@ -461,70 +581,95 @@
             });
         }
         
-        // Función para sincronizar estados
-        async function sincronizarEstados() {
-            const btn = event.target;
-            const textoOriginal = btn.innerHTML;
-            btn.innerHTML = '<i class="bi bi-arrow-repeat spin"></i> Sincronizando...';
-            btn.disabled = true;
-            
+        // Función para cargar lista de estados en el modal
+        async function cargarListaEstados() {
             try {
                 const response = await fetch(`/admin/ver_estados/${profesorUsuario}`);
                 const data = await response.json();
                 
-                if (data.total_estados_encontrados !== undefined) {
-                    alert(`✅ Sincronización exitosa!\n` +
-                          `Se encontraron ${data.total_estados_encontrados} estados.\n` +
-                          `La página se recargará para mostrar los cambios.`);
-                    location.reload();
-                } else {
-                    alert(`❌ Error al sincronizar: ${data.error || 'Error desconocido'}`);
+                const container = document.getElementById('estados-lista');
+                
+                if (data.error) {
+                    container.innerHTML = `<div class="alert alert-danger">${data.error}</div>`;
+                    return;
                 }
+                
+                const estados = data.estados || {};
+                const estadosArray = Object.entries(estados).filter(([_, v]) => v === true);
+                
+                if (estadosArray.length === 0) {
+                    container.innerHTML = '<div class="alert alert-info">No hay materias evaluadas aún.</div>';
+                    return;
+                }
+                
+                // Agrupar por curso
+                const porCurso = {};
+                estadosArray.forEach(([key, _]) => {
+                    const partes = key.split('_');
+                    const curso = partes[0];
+                    const alumno = partes[1];
+                    const materia = partes[2];
+                    
+                    if (!porCurso[curso]) porCurso[curso] = [];
+                    porCurso[curso].push({ alumno, materia });
+                });
+                
+                let html = '';
+                for (const [curso, evaluaciones] of Object.entries(porCurso)) {
+                    html += `<h6 class="mt-3"><i class="bi bi-folder"></i> ${curso}</h6>`;
+                    html += '<div class="list-group mb-3">';
+                    
+                    // Agrupar por alumno
+                    const porAlumno = {};
+                    evaluaciones.forEach(e => {
+                        if (!porAlumno[e.alumno]) porAlumno[e.alumno] = [];
+                        porAlumno[e.alumno].push(e.materia);
+                    });
+                    
+                    for (const [alumno, materias] of Object.entries(porAlumno)) {
+                        html += `
+                            <div class="list-group-item">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <strong>${alumno}</strong>
+                                    <span class="badge bg-success">${materias.length} materias</span>
+                                </div>
+                                <small class="text-muted">Materias: ${materias.map(m => `M${m}`).join(', ')}</small>
+                            </div>
+                        `;
+                    }
+                    html += '</div>';
+                }
+                
+                container.innerHTML = html;
+            } catch (error) {
+                document.getElementById('estados-lista').innerHTML = 
+                    `<div class="alert alert-danger">Error al cargar: ${error.message}</div>`;
+            }
+        }
+        
+        // Función para actualizar en tiempo real
+        async function actualizarEnTiempoReal() {
+            const btn = event.target;
+            const textoOriginal = btn.innerHTML;
+            btn.innerHTML = '<i class="bi bi-arrow-repeat spin"></i> Actualizando...';
+            btn.disabled = true;
+            
+            try {
+                // Recargar la página para obtener datos frescos de Google Sheets
+                location.reload();
             } catch (error) {
                 alert(`❌ Error: ${error.message}`);
-            } finally {
                 btn.innerHTML = textoOriginal;
                 btn.disabled = false;
             }
         }
         
-        // Función para mostrar/ocultar panel de depuración
-        function toggleDebugPanel() {
-            const panel = document.getElementById('debugPanel');
-            const content = document.getElementById('debugContent');
-            
-            if (panel.style.display === 'none') {
-                // Preparar datos de depuración
-                const debugInfo = {
-                    profesor: profesorUsuario,
-                    total_cursos: Object.keys(evaluacionesData).length,
-                    cursos: Object.keys(evaluacionesData),
-                    estadisticas: estadisticasCurso,
-                    muestra_evaluaciones: {}
-                };
-                
-                // Agregar muestra de evaluaciones (primeros 5 alumnos del primer curso)
-                const primerCurso = Object.keys(evaluacionesData)[0];
-                if (primerCurso) {
-                    const alumnos = Object.keys(evaluacionesData[primerCurso]).slice(0, 5);
-                    alumnos.forEach(alumno => {
-                        debugInfo.muestra_evaluaciones[alumno] = evaluacionesData[primerCurso][alumno];
-                    });
-                }
-                
-                content.textContent = JSON.stringify(debugInfo, null, 2);
-                panel.style.display = 'block';
-            } else {
-                panel.style.display = 'none';
-            }
-        }
+        // Event listener para el modal de estados
+        document.getElementById('modalEstados').addEventListener('show.bs.modal', cargarListaEstados);
         
-        // Atajo de teclado: Ctrl+Shift+D para mostrar panel de depuración
-        document.addEventListener('keydown', function(e) {
-            if (e.ctrlKey && e.shiftKey && e.key === 'D') {
-                e.preventDefault();
-                toggleDebugPanel();
-            }
+        // Inicializar cuando la página cargue
+        document.addEventListener('DOMContentLoaded', function() {
+            inicializarVistas();
         });
         
         // Agregar animación de carga
@@ -540,28 +685,6 @@
             }
         `;
         document.head.appendChild(style);
-        
-        // Inicializar cuando la página cargue
-        document.addEventListener('DOMContentLoaded', function() {
-            inicializarVistas();
-            
-            // Agregar tooltips de Bootstrap
-            const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-            tooltipTriggerList.map(function (tooltipTriggerEl) {
-                return new bootstrap.Tooltip(tooltipTriggerEl);
-            });
-        });
-        
-        // Hacer visible el panel de depuración si hay un error
-        window.addEventListener('error', function() {
-            console.log('Error detectado - Mostrando panel de depuración');
-            setTimeout(() => {
-                const panel = document.getElementById('debugPanel');
-                if (panel && panel.style.display === 'none') {
-                    toggleDebugPanel();
-                }
-            }, 100);
-        });
     </script>
 </body>
 </html>
