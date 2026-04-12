@@ -514,14 +514,19 @@ def obtener_datos_profesor(profesor_usuario):
                     'cursos': []
                 }
                 
+                # Mapeo correcto de columnas según estructura de PROFESORES
+                # Col 0: usuario, Col 1: nombre_completo
+                # Col 2: m1, Col 3: cursos_m1
+                # Col 4: m2, Col 5: cursos_m2
+                # Col 6: m3, Col 7: cursos_m3
                 for i in range(1, 4):
-                    idx_materia = 1 + (i-1)*2
-                    idx_cursos = 2 + (i-1)*2
+                    idx_materia = 2 + (i-1)*2  # 2, 4, 6
+                    idx_cursos = 3 + (i-1)*2   # 3, 5, 7
                     
                     materia = fila[idx_materia].strip() if len(fila) > idx_materia else ''
                     cursos_str = fila[idx_cursos].strip() if len(fila) > idx_cursos else ''
                     
-                    profesor_data[f'materia{i}'] = materia
+                    profesor_data[f'm{i}'] = materia
                     profesor_data[f'cursos_m{i}'] = cursos_str
                     
                     if cursos_str:
@@ -560,6 +565,7 @@ def obtener_datos_profesor(profesor_usuario):
         
     except Exception as e:
         print(f"Error obteniendo datos del profesor: {e}")
+        traceback.print_exc()
         return None
 
 # ==================== RUTAS DE ADMINISTRACIÓN ====================
@@ -836,8 +842,12 @@ def admin_reporte_individual(usuario):
             if curso and nombre and curso in profesor_data.get('cursos', []):
                 if curso not in cursos:
                     cursos[curso] = []
-                if nombre not in cursos[curso] and nombre:
+                if nombre not in cursos[curso]:
                     cursos[curso].append(nombre)
+        
+        # Ordenar estudiantes alfabéticamente
+        for curso in cursos:
+            cursos[curso].sort()
         
         # Obtener materias
         materias_data = mat_sheet.get_all_records()
@@ -1042,7 +1052,7 @@ def admin_logout():
     session.pop('admin', None)
     return redirect('/admin')
 
-# ==================== RUTAS ORIGINALES ====================
+# ==================== RUTAS ORIGINALES (SIN MODIFICAR) ====================
 
 @app.route('/', methods=['GET', 'POST'])
 def login():
