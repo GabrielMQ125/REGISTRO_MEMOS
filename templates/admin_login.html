@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
     <title>Login Administrador - Sistema de Evaluaciones</title>
     <style>
         * {
@@ -18,30 +18,32 @@
             display: flex;
             justify-content: center;
             align-items: center;
+            padding: 20px;
         }
         
         .login-container {
             background: white;
             border-radius: 10px;
             box-shadow: 0 20px 40px rgba(0,0,0,0.1);
-            width: 400px;
-            padding: 40px;
+            width: 100%;
+            max-width: 400px;
+            padding: 30px 25px;
         }
         
         .login-header {
             text-align: center;
-            margin-bottom: 30px;
+            margin-bottom: 25px;
         }
         
         .login-header h1 {
             color: #333;
-            font-size: 24px;
-            margin-bottom: 10px;
+            font-size: 1.5rem;
+            margin-bottom: 8px;
         }
         
         .login-header p {
             color: #666;
-            font-size: 14px;
+            font-size: 0.85rem;
         }
         
         .form-group {
@@ -53,6 +55,7 @@
             margin-bottom: 8px;
             color: #333;
             font-weight: 500;
+            font-size: 0.9rem;
         }
         
         input[type="password"] {
@@ -60,7 +63,7 @@
             padding: 12px;
             border: 1px solid #ddd;
             border-radius: 5px;
-            font-size: 14px;
+            font-size: 1rem;
             transition: border-color 0.3s;
         }
         
@@ -76,7 +79,7 @@
             color: white;
             border: none;
             border-radius: 5px;
-            font-size: 16px;
+            font-size: 1rem;
             font-weight: 600;
             cursor: pointer;
             transition: transform 0.2s;
@@ -93,7 +96,7 @@
             border-radius: 5px;
             margin-bottom: 20px;
             text-align: center;
-            font-size: 14px;
+            font-size: 0.85rem;
         }
         
         .back-link {
@@ -104,11 +107,25 @@
         .back-link a {
             color: #667eea;
             text-decoration: none;
-            font-size: 14px;
+            font-size: 0.85rem;
         }
         
         .back-link a:hover {
             text-decoration: underline;
+        }
+        
+        @media (max-width: 480px) {
+            .login-container {
+                padding: 25px 20px;
+            }
+            
+            .login-header h1 {
+                font-size: 1.3rem;
+            }
+            
+            button {
+                padding: 10px;
+            }
         }
     </style>
 </head>
