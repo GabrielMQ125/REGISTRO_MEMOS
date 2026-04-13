@@ -75,28 +75,6 @@ def invalidar_cache(sheet_name=None):
         _cache_time = {}
         print("🗑️ TODO el caché invalidado")
 
-def rate_limit_sheets(func):
-    """
-    Decorador para limitar llamadas a Google Sheets (mínimo 2 segundos entre llamadas)
-    """
-    last_call = {}
-    
-    @wraps(func)
-    def wrapper(*args, **kwargs):
-        func_name = func.__name__
-        now = time.time()
-        
-        if func_name in last_call:
-            elapsed = now - last_call[func_name]
-            if elapsed < 2:
-                time.sleep(2 - elapsed)
-        
-        result = func(*args, **kwargs)
-        last_call[func_name] = time.time()
-        return result
-    
-    return wrapper
-
 # ==================== FUNCIÓN DE NORMALIZACIÓN ====================
 def normalizar_texto(texto):
     """Normaliza texto SOLO para comparación"""
@@ -110,8 +88,8 @@ def normalizar_texto(texto):
 
 def obtener_estados_desde_sheets(profesor):
     """
-    Obtiene los estados desde Google Sheets para un profesor.
-    Esta función es usada por LOS PROFESORES - NO SE MODIFICA
+    Obtiene los estados desde Google Sheets para un profesor específico.
+    SOPORTA MÚLTIPLES PROFESORES EN LA MISMA CELDA (separados por comas)
     """
     try:
         todas_respuestas = cached_get_all_records(resp_sheet)
@@ -121,10 +99,13 @@ def obtener_estados_desde_sheets(profesor):
         
         for respuesta in todas_respuestas:
             profesor_resp = respuesta.get('profesor', '')
-            profesor_resp_norm = normalizar_texto(profesor_resp)
+            
+            # Dividir por comas para soportar múltiples profesores
+            profesores_lista = [p.strip().upper() for p in str(profesor_resp).split(',') if p.strip()]
             profesor_norm = normalizar_texto(profesor)
             
-            if profesor_resp_norm == profesor_norm:
+            # Verificar si el profesor actual está en la lista
+            if profesor_norm in [normalizar_texto(p) for p in profesores_lista]:
                 curso = respuesta.get('curso', '')
                 alumno = respuesta.get('alumno', '')
                 
@@ -146,7 +127,7 @@ def obtener_estados_desde_sheets(profesor):
         return {}
 
 # ==================== FUNCIÓN EXCLUSIVA PARA ADMINISTRADOR ====================
-def obtener_estados_para_admin(profesor=None):
+def obtener_estados_para_admin():
     """
     Función ESPECIAL para el administrador que busca TODOS los estados
     basados en curso+alumno+materia, IGNORANDO el campo 'profesor'.
@@ -308,7 +289,6 @@ def incrementar_contador_descargas(profesor):
             descargas_actual = int(stats_sheet.cell(fila_encontrada, 2).value or 0)
             stats_sheet.update_cell(fila_encontrada, 2, descargas_actual + 1)
             stats_sheet.update_cell(fila_encontrada, 3, ahora)
-            # Invalidar caché de estadísticas
             invalidar_cache("ESTADISTICAS")
             return True
         else:
@@ -351,7 +331,7 @@ def obtener_materias_por_curso(profesor_dict, cursos_disponibles):
     return materias_por_curso
 
 def generar_reporte_pdf(profesor, cursos_data, todas_materias, materias_por_curso, estados_data, solo_marcadas=True, nombre_completo=""):
-    """Genera reporte PDF usando estados PASADOS como parámetro (desde Sheets)"""
+    """Genera reporte PDF usando estados PASADOS como parámetro"""
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=letter,
                            rightMargin=30, leftMargin=30,
@@ -656,7 +636,10 @@ def obtener_datos_profesor(profesor_usuario):
         evaluaciones = []
         
         for respuesta in todas_respuestas:
-            if respuesta.get('profesor', '').upper() == profesor_usuario.upper():
+            profesor_resp = respuesta.get('profesor', '')
+            profesores_lista = [p.strip().upper() for p in str(profesor_resp).split(',') if p.strip()]
+            
+            if profesor_usuario.upper() in profesores_lista:
                 evaluacion = {
                     'curso': respuesta.get('curso', ''),
                     'alumno': respuesta.get('alumno', ''),
@@ -857,8 +840,8 @@ def admin_profesor_detalle(usuario):
         
         materias_por_curso = obtener_materias_por_curso(profesor_dict, profesor_data.get('cursos', []))
         
-        # ============ CAMBIO CLAVE: Usar función exclusiva para admin ============
-        estados = obtener_estados_para_admin()  # Sin parámetro, obtiene TODOS los estados
+        # Usar función exclusiva para admin (ve TODOS los estados)
+        estados = obtener_estados_para_admin()
         
         evaluaciones_detalle = {}
         estadisticas_curso = {}
@@ -974,7 +957,7 @@ def admin_reporte_individual(usuario):
         
         materias_por_curso = obtener_materias_por_curso(profesor_dict, profesor_data.get('cursos', []))
         
-        # Para el PDF del admin, también usamos la función que ve TODOS los estados
+        # Para el PDF del admin, usamos la función que ve TODOS los estados
         estados = obtener_estados_para_admin()
         
         pdf_buffer = generar_reporte_pdf(usuario, cursos, todas_materias, materias_por_curso, estados, solo_marcadas=False, nombre_completo=profesor_data.get('nombre_completo', usuario))
@@ -1177,7 +1160,7 @@ def admin_ver_estados(usuario):
     except Exception as e:
         return jsonify({"error": str(e)})
 
-# ==================== RUTAS ORIGINALES (SIN MODIFICAR) ====================
+# ==================== RUTAS DE PROFESORES ====================
 
 @app.route('/', methods=['GET', 'POST'])
 def login():
@@ -1292,6 +1275,7 @@ def panel():
             except Exception as e:
                 continue
         
+        # Usar la función que soporta múltiples profesores
         estados = obtener_estados_desde_sheets(usuario)
         
         keys_to_remove = [key for key in session.keys() if key.startswith('estado_temp_')]
@@ -1362,8 +1346,17 @@ def guardar():
         columna_materia = 4 + (materia - 1)
         
         if num_fila:
+            # ============ NO SOBRESCRIBIR PROFESOR - AGREGAR A LA LISTA ============
+            profesor_actual = todas_filas[num_fila-1][0] if len(todas_filas[num_fila-1]) > 0 else ""
+            profesores_existentes = [p.strip().upper() for p in profesor_actual.split(',') if p.strip()]
+            
+            if profesor not in profesores_existentes:
+                profesores_existentes.append(profesor)
+                nuevo_profesor = ', '.join(profesores_existentes)
+                resp_sheet.update_cell(num_fila, 1, nuevo_profesor)
+                print(f"   Agregado profesor {profesor} a la lista: {nuevo_profesor}")
+            
             resp_sheet.update_cell(num_fila, columna_materia, valor_texto)
-            resp_sheet.update_cell(num_fila, 1, profesor)
             
             if len(todas_filas[num_fila-1]) >= 24:
                 resp_sheet.update_cell(num_fila, 24, fecha)
@@ -1397,7 +1390,6 @@ def guardar():
                         print(f"   Actualizada materia M{materia} en fila {idx}")
                         break
         
-        # Invalidar caché después de guardar
         invalidar_cache("RESPUESTAS")
         
         return jsonify({"success": True, "mensaje": "Guardado correctamente"})
@@ -1443,6 +1435,7 @@ def pdf():
             except:
                 pass
         
+        # Usar la función que soporta múltiples profesores
         estados = obtener_estados_desde_sheets(profesor)
         print(f"📊 PDF: {len(estados)} estados cargados desde Sheets para {profesor}")
         
