@@ -53,7 +53,6 @@ def cached_get_all_records(sheet, ttl=None):
         return data
     except Exception as e:
         print(f"❌ Error leyendo {sheet_name}: {e}")
-        # Si hay error y existe caché antiguo, devolver el caché aunque esté expirado
         if sheet_name in _cache:
             print(f"⚠️ Usando caché expirado para {sheet_name} debido a error")
             return _cache[sheet_name]
@@ -100,11 +99,9 @@ def obtener_estados_desde_sheets(profesor):
         for respuesta in todas_respuestas:
             profesor_resp = respuesta.get('profesor', '')
             
-            # Dividir por comas para soportar múltiples profesores
             profesores_lista = [p.strip().upper() for p in str(profesor_resp).split(',') if p.strip()]
             profesor_norm = normalizar_texto(profesor)
             
-            # Verificar si el profesor actual está en la lista
             if profesor_norm in [normalizar_texto(p) for p in profesores_lista]:
                 curso = respuesta.get('curso', '')
                 alumno = respuesta.get('alumno', '')
@@ -150,7 +147,6 @@ def obtener_estados_para_admin():
                     valor_bool = convertir_a_booleano(valor)
                     key = f"{curso}_{alumno}_{i}"
                     
-                    # SOLO guarda si es TRUE, sin importar qué profesor lo marcó
                     if valor_bool:
                         estados[key] = True
         
@@ -416,9 +412,23 @@ def generar_reporte_pdf(profesor, cursos_data, todas_materias, materias_por_curs
         total_materias_marcadas = 0
         total_posibles = 0
         
-        for alumno in alumnos:
+        # Filtrar alumnos que tienen al menos una materia marcada si solo_marcadas=True
+        alumnos_a_mostrar = []
+        if solo_marcadas:
+            for alumno in alumnos:
+                tiene_marcada = False
+                for materia_id in materias_a_mostrar.keys():
+                    key = f"{curso_nombre}_{alumno}_{materia_id}"
+                    if estados_data.get(key, False):
+                        tiene_marcada = True
+                        break
+                if tiene_marcada:
+                    alumnos_a_mostrar.append(alumno)
+        else:
+            alumnos_a_mostrar = alumnos
+        
+        for alumno in alumnos_a_mostrar:
             fila = [alumno]
-            tiene_alguna_marcada = False
             
             for materia_id in materias_a_mostrar.keys():
                 key = f"{curso_nombre}_{alumno}_{materia_id}"
@@ -427,13 +437,9 @@ def generar_reporte_pdf(profesor, cursos_data, todas_materias, materias_por_curs
                 if estado_valor:
                     fila.append("✓")
                     total_materias_marcadas += 1
-                    tiene_alguna_marcada = True
                 else:
                     fila.append("")
                 total_posibles += 1
-            
-            if solo_marcadas and not tiene_alguna_marcada:
-                continue
             
             tabla_datos.append(fila)
         
@@ -791,7 +797,7 @@ def admin_config():
 
 @app.route('/admin/profesor/<usuario>')
 def admin_profesor_detalle(usuario):
-    """Detalle de un profesor específico con materias marcadas por curso"""
+    """Detalle de un profesor específico - SOLO MUESTRA ESTUDIANTES CON EVALUACIONES"""
     if not verificar_admin():
         return redirect('/admin')
     
@@ -840,8 +846,29 @@ def admin_profesor_detalle(usuario):
         
         materias_por_curso = obtener_materias_por_curso(profesor_dict, profesor_data.get('cursos', []))
         
-        # Usar función exclusiva para admin (ve TODOS los estados)
         estados = obtener_estados_para_admin()
+        
+        # ============ FILTRAR SOLO ESTUDIANTES CON EVALUACIONES ============
+        cursos_con_evaluaciones = {}
+        for curso, alumnos in cursos_con_estudiantes.items():
+            alumnos_con_evaluaciones = []
+            materias_ids = materias_por_curso.get(curso, [])
+            
+            for alumno in alumnos:
+                tiene_evaluacion = False
+                for materia_id in materias_ids:
+                    key = f"{curso}_{alumno}_{materia_id}"
+                    if estados.get(key, False):
+                        tiene_evaluacion = True
+                        break
+                
+                if tiene_evaluacion:
+                    alumnos_con_evaluaciones.append(alumno)
+            
+            if alumnos_con_evaluaciones:
+                cursos_con_evaluaciones[curso] = alumnos_con_evaluaciones
+        
+        cursos_con_estudiantes = cursos_con_evaluaciones
         
         evaluaciones_detalle = {}
         estadisticas_curso = {}
@@ -908,7 +935,7 @@ def admin_profesor_detalle(usuario):
 
 @app.route('/admin/reporte_individual/<usuario>')
 def admin_reporte_individual(usuario):
-    """Genera reporte PDF individual para un profesor específico"""
+    """Genera reporte PDF individual - SOLO ESTUDIANTES CON MATERIAS MARCADAS"""
     if not verificar_admin():
         return redirect('/admin')
     
@@ -957,17 +984,17 @@ def admin_reporte_individual(usuario):
         
         materias_por_curso = obtener_materias_por_curso(profesor_dict, profesor_data.get('cursos', []))
         
-        # Para el PDF del admin, usamos la función que ve TODOS los estados
         estados = obtener_estados_para_admin()
         
-        pdf_buffer = generar_reporte_pdf(usuario, cursos, todas_materias, materias_por_curso, estados, solo_marcadas=False, nombre_completo=profesor_data.get('nombre_completo', usuario))
+        # solo_marcadas=True para mostrar SOLO materias marcadas
+        pdf_buffer = generar_reporte_pdf(usuario, cursos, todas_materias, materias_por_curso, estados, solo_marcadas=True, nombre_completo=profesor_data.get('nombre_completo', usuario))
         
         nombre_limpio = profesor_data.get('nombre_completo', usuario).replace(' ', '_')
         
         return send_file(
             pdf_buffer,
             as_attachment=True,
-            download_name=f"reporte_individual_{nombre_limpio}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
+            download_name=f"reporte_{nombre_limpio}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
             mimetype='application/pdf'
         )
     
@@ -978,7 +1005,7 @@ def admin_reporte_individual(usuario):
 
 @app.route('/admin/reporte_grupal')
 def admin_reporte_grupal():
-    """Genera reporte PDF grupal de todos los profesores"""
+    """Genera reporte PDF grupal - CON TABLA DE ESTUDIANTES Y MARCAS POR MATERIA"""
     if not verificar_admin():
         return redirect('/admin')
     
@@ -998,6 +1025,9 @@ def admin_reporte_grupal():
                     estudiantes_por_curso[curso] = []
                 if nombre not in estudiantes_por_curso[curso]:
                     estudiantes_por_curso[curso].append(nombre)
+        
+        for curso in estudiantes_por_curso:
+            estudiantes_por_curso[curso].sort()
         
         materias_data = cached_get_all_records(mat_sheet)
         todas_materias = {}
@@ -1043,6 +1073,15 @@ def admin_reporte_grupal():
             textColor=colors.HexColor('#4a6cf7')
         )
         
+        curso_style = ParagraphStyle(
+            'CursoStyle',
+            parent=styles['Heading4'],
+            fontSize=12,
+            spaceAfter=5,
+            spaceBefore=10,
+            textColor=colors.HexColor('#333333')
+        )
+        
         elementos = []
         fecha_actual = datetime.now().strftime("%d/%m/%Y %H:%M")
         
@@ -1052,7 +1091,6 @@ def admin_reporte_grupal():
         elementos.append(subtitulo)
         elementos.append(Spacer(1, 20))
         
-        # Para el reporte grupal, usamos la función que ve TODOS los estados
         estados = obtener_estados_para_admin()
         
         for profesor in profesores:
@@ -1078,7 +1116,7 @@ def admin_reporte_grupal():
             materias_por_curso = obtener_materias_por_curso(profesor_dict, profesor['cursos'])
             
             for curso_nombre, alumnos in cursos.items():
-                elementos.append(Paragraph(f"<b>Curso: {curso_nombre}</b>", styles['Heading4']))
+                elementos.append(Paragraph(f"<b>Curso: {curso_nombre}</b>", curso_style))
                 
                 materias_curso_ids = materias_por_curso.get(curso_nombre, [])
                 if not materias_curso_ids:
@@ -1086,24 +1124,81 @@ def admin_reporte_grupal():
                     elementos.append(Spacer(1, 10))
                     continue
                 
-                total_marcadas_curso = 0
-                total_posibles_curso = 0
+                # Obtener nombres de materias
+                nombres_materias = []
+                materias_ids_validas = []
+                for materia_id in materias_curso_ids:
+                    if materia_id in todas_materias:
+                        nombres_materias.append(todas_materias[materia_id])
+                        materias_ids_validas.append(materia_id)
                 
+                if not nombres_materias:
+                    elementos.append(Paragraph("<i>No hay materias válidas</i>", styles['Italic']))
+                    elementos.append(Spacer(1, 10))
+                    continue
+                
+                # Filtrar alumnos con al menos una materia marcada
+                alumnos_con_marcas = []
                 for alumno in alumnos:
-                    for materia_id in materias_curso_ids:
+                    tiene_marca = False
+                    for materia_id in materias_ids_validas:
                         key = f"{curso_nombre}_{alumno}_{materia_id}"
                         if estados.get(key, False):
+                            tiene_marca = True
+                            break
+                    if tiene_marca:
+                        alumnos_con_marcas.append(alumno)
+                
+                if not alumnos_con_marcas:
+                    elementos.append(Paragraph("<i>No hay estudiantes con evaluaciones en este curso</i>", styles['Italic']))
+                    elementos.append(Spacer(1, 10))
+                    continue
+                
+                # Crear tabla
+                encabezados = ["Alumno"] + nombres_materias
+                tabla_datos = [encabezados]
+                
+                total_marcadas_curso = 0
+                total_posibles_curso = len(alumnos_con_marcas) * len(materias_ids_validas)
+                
+                for alumno in alumnos_con_marcas:
+                    fila = [alumno]
+                    for materia_id in materias_ids_validas:
+                        key = f"{curso_nombre}_{alumno}_{materia_id}"
+                        if estados.get(key, False):
+                            fila.append("✓")
                             total_marcadas_curso += 1
-                        total_posibles_curso += 1
+                        else:
+                            fila.append("")
+                    tabla_datos.append(fila)
+                
+                tabla = Table(tabla_datos, repeatRows=1)
+                tabla.setStyle(TableStyle([
+                    ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#4a6cf7')),
+                    ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                    ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                    ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                    ('FONTSIZE', (0, 0), (-1, 0), 8),
+                    ('BOTTOMPADDING', (0, 0), (-1, 0), 4),
+                    ('TOPPADDING', (0, 0), (-1, 0), 4),
+                    ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+                    ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+                    ('FONTSIZE', (0, 1), (-1, -1), 7),
+                    ('ALIGN', (0, 0), (0, -1), 'LEFT'),
+                    ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ]))
+                
+                elementos.append(tabla)
                 
                 if total_posibles_curso > 0:
                     porcentaje = (total_marcadas_curso / total_posibles_curso) * 100
+                    elementos.append(Spacer(1, 5))
                     elementos.append(Paragraph(
-                        f"<i>{len(alumnos)} alumnos - {total_marcadas_curso} evaluaciones de {total_posibles_curso} posibles ({porcentaje:.1f}%)</i>",
+                        f"<i>Total: {total_marcadas_curso} evaluaciones de {total_posibles_curso} posibles ({porcentaje:.1f}%)</i>",
                         styles['Italic']
                     ))
                 
-                elementos.append(Spacer(1, 10))
+                elementos.append(Spacer(1, 15))
             
             elementos.append(Spacer(1, 20))
         
@@ -1160,7 +1255,7 @@ def admin_ver_estados(usuario):
     except Exception as e:
         return jsonify({"error": str(e)})
 
-# ==================== RUTAS DE PROFESORES ====================
+# ==================== RUTAS DE PROFESORES (SIN MODIFICAR) ====================
 
 @app.route('/', methods=['GET', 'POST'])
 def login():
@@ -1275,7 +1370,6 @@ def panel():
             except Exception as e:
                 continue
         
-        # Usar la función que soporta múltiples profesores
         estados = obtener_estados_desde_sheets(usuario)
         
         keys_to_remove = [key for key in session.keys() if key.startswith('estado_temp_')]
@@ -1346,7 +1440,6 @@ def guardar():
         columna_materia = 4 + (materia - 1)
         
         if num_fila:
-            # ============ NO SOBRESCRIBIR PROFESOR - AGREGAR A LA LISTA ============
             profesor_actual = todas_filas[num_fila-1][0] if len(todas_filas[num_fila-1]) > 0 else ""
             profesores_existentes = [p.strip().upper() for p in profesor_actual.split(',') if p.strip()]
             
@@ -1435,7 +1528,6 @@ def pdf():
             except:
                 pass
         
-        # Usar la función que soporta múltiples profesores
         estados = obtener_estados_desde_sheets(profesor)
         print(f"📊 PDF: {len(estados)} estados cargados desde Sheets para {profesor}")
         
